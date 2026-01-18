@@ -66,15 +66,31 @@ class Store:
     -- Performance indexes
     CREATE INDEX IF NOT EXISTS idx_nodes_parent ON nodes(parent_id);
     CREATE INDEX IF NOT EXISTS idx_nodes_type ON nodes(type);
+    CREATE INDEX IF NOT EXISTS idx_nodes_file_path ON nodes(file_path);
     CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
     CREATE INDEX IF NOT EXISTS idx_search_term ON search_index(term);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_search_unique ON search_index(node_id, term);
     """
 
     def __init__(self, db_path: Path):
         self.db_path = db_path
         self.conn = sqlite3.connect(str(db_path))
         self.conn.row_factory = sqlite3.Row
+        self._configure_connection()
         self._init_schema()
+
+    def _configure_connection(self) -> None:
+        """Configure SQLite connection for optimal performance."""
+        # WAL mode for better concurrent read/write performance
+        self.conn.execute("PRAGMA journal_mode=WAL")
+        # Memory-mapped I/O for faster reads (256MB)
+        self.conn.execute("PRAGMA mmap_size=268435456")
+        # Store temp tables in memory
+        self.conn.execute("PRAGMA temp_store=MEMORY")
+        # Larger cache for better performance (64MB)
+        self.conn.execute("PRAGMA cache_size=-65536")
+        # Synchronous mode: NORMAL is safe with WAL and faster than FULL
+        self.conn.execute("PRAGMA synchronous=NORMAL")
 
     def _init_schema(self) -> None:
         """Initialize the database schema."""
@@ -97,7 +113,7 @@ class Store:
     def save_graph(self, graph: CodeGraph) -> None:
         """Save the entire graph to the database.
 
-        Uses explicit transaction to ensure atomicity.
+        Uses explicit transaction and batch inserts for performance.
         """
         cursor = self.conn.cursor()
 
@@ -110,27 +126,31 @@ class Store:
             cursor.execute("DELETE FROM search_index")
             cursor.execute("DELETE FROM idf")
 
-            # Insert nodes
-            for node in graph.nodes.values():
-                cursor.execute(
-                    """
-                    INSERT INTO nodes (id, parent_id, name, type, file_path,
-                                       line_start, line_end, signature, docstring, calls)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        node.id,
-                        node.parent_id,
-                        node.name,
-                        node.type,
-                        node.file_path,
-                        node.line_start,
-                        node.line_end,
-                        node.signature,
-                        node.docstring,
-                        ",".join(node.calls) if node.calls else None,
-                    ),
+            # Batch insert nodes using executemany for 10-50x speedup
+            node_data = [
+                (
+                    node.id,
+                    node.parent_id,
+                    node.name,
+                    node.type,
+                    node.file_path,
+                    node.line_start,
+                    node.line_end,
+                    node.signature,
+                    node.docstring,
+                    ",".join(node.calls) if node.calls else None,
                 )
+                for node in graph.nodes.values()
+            ]
+
+            cursor.executemany(
+                """
+                INSERT INTO nodes (id, parent_id, name, type, file_path,
+                                   line_start, line_end, signature, docstring, calls)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                node_data,
+            )
 
             cursor.execute("COMMIT")
         except Exception:
@@ -195,16 +215,28 @@ class Store:
         )
 
     def get_children(self, node_id: str) -> list[GraphNode]:
-        """Get all children of a node."""
+        """Get all children of a node with grandchildren in a single query."""
         cursor = self.conn.cursor()
-        cursor.execute("SELECT * FROM nodes WHERE parent_id = ?", (node_id,))
+
+        # Single query to get children and their grandchildren using LEFT JOIN
+        cursor.execute(
+            """
+            SELECT
+                c.id, c.name, c.type, c.parent_id, c.file_path,
+                c.line_start, c.line_end, c.signature, c.docstring, c.calls,
+                GROUP_CONCAT(g.id) as grandchildren_ids
+            FROM nodes c
+            LEFT JOIN nodes g ON g.parent_id = c.id
+            WHERE c.parent_id = ?
+            GROUP BY c.id
+            """,
+            (node_id,),
+        )
         rows = cursor.fetchall()
 
         children = []
         for row in rows:
-            # Get grandchildren count for each child
-            cursor.execute("SELECT id FROM nodes WHERE parent_id = ?", (row["id"],))
-            grandchildren = [r["id"] for r in cursor.fetchall()]
+            grandchildren = row["grandchildren_ids"].split(",") if row["grandchildren_ids"] else []
 
             children.append(GraphNode(
                 id=row["id"],
@@ -249,8 +281,56 @@ class Store:
 
         return stats
 
-    def save_file_hash(self, file_path: str, content_hash: str) -> None:
-        """Save file hash for incremental updates."""
+    def get_stats_batch(self, node_ids: list[str]) -> dict[str, dict]:
+        """Get statistics for multiple nodes in a single query.
+
+        Returns:
+            Dict mapping node_id -> stats dict
+        """
+        if not node_ids:
+            return {}
+
+        cursor = self.conn.cursor()
+
+        # Use a single CTE query to get stats for all nodes at once
+        placeholders = ",".join("?" * len(node_ids))
+        cursor.execute(
+            f"""
+            WITH RECURSIVE descendants AS (
+                SELECT id, type, id as root_id FROM nodes WHERE id IN ({placeholders})
+                UNION ALL
+                SELECT n.id, n.type, d.root_id FROM nodes n
+                INNER JOIN descendants d ON n.parent_id = d.id
+            )
+            SELECT root_id, type, COUNT(*) as count
+            FROM descendants
+            GROUP BY root_id, type
+            """,
+            node_ids,
+        )
+
+        # Initialize results
+        results: dict[str, dict] = {
+            nid: {"files": 0, "classes": 0, "functions": 0, "methods": 0}
+            for nid in node_ids
+        }
+
+        type_map = {"file": "files", "class": "classes", "function": "functions", "method": "methods"}
+        for row in cursor.fetchall():
+            stat_key = type_map.get(row["type"])
+            if stat_key and row["root_id"] in results:
+                results[row["root_id"]][stat_key] = row["count"]
+
+        return results
+
+    def save_file_hash(self, file_path: str, content_hash: str, commit: bool = True) -> None:
+        """Save file hash for incremental updates.
+
+        Args:
+            file_path: Relative path to the file
+            content_hash: SHA256 hash of file contents
+            commit: Whether to commit immediately (set False for batch operations)
+        """
         cursor = self.conn.cursor()
         cursor.execute(
             """
@@ -258,6 +338,28 @@ class Store:
             VALUES (?, ?, ?)
             """,
             (file_path, content_hash, datetime.now().isoformat()),
+        )
+        if commit:
+            self.conn.commit()
+
+    def save_file_hashes_batch(self, file_hashes: dict[str, str]) -> None:
+        """Save multiple file hashes in a single transaction.
+
+        Args:
+            file_hashes: Dict mapping file_path -> content_hash
+        """
+        if not file_hashes:
+            return
+
+        cursor = self.conn.cursor()
+        now = datetime.now().isoformat()
+
+        cursor.executemany(
+            """
+            INSERT OR REPLACE INTO files (path, hash, indexed_at)
+            VALUES (?, ?, ?)
+            """,
+            [(path, hash_, now) for path, hash_ in file_hashes.items()],
         )
         self.conn.commit()
 
@@ -274,15 +376,40 @@ class Store:
         content = file_path.read_bytes()
         return hashlib.sha256(content).hexdigest()
 
-    def delete_file_nodes(self, file_path: str) -> None:
-        """Delete all nodes belonging to a specific file."""
+    def delete_file_nodes(self, file_path: str, commit: bool = True) -> None:
+        """Delete all nodes belonging to a specific file.
+
+        Args:
+            file_path: Relative path to the file
+            commit: Whether to commit immediately (set False for batch operations)
+        """
         cursor = self.conn.cursor()
         cursor.execute(
             "DELETE FROM nodes WHERE file_path = ? OR id = ?",
             (file_path, file_path),
         )
         cursor.execute("DELETE FROM files WHERE path = ?", (file_path,))
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
+
+    def delete_file_nodes_batch(self, file_paths: list[str]) -> None:
+        """Delete nodes for multiple files in a single transaction."""
+        if not file_paths:
+            return
+
+        cursor = self.conn.cursor()
+        cursor.execute("BEGIN TRANSACTION")
+        try:
+            for file_path in file_paths:
+                cursor.execute(
+                    "DELETE FROM nodes WHERE file_path = ? OR id = ?",
+                    (file_path, file_path),
+                )
+                cursor.execute("DELETE FROM files WHERE path = ?", (file_path,))
+            cursor.execute("COMMIT")
+        except Exception:
+            cursor.execute("ROLLBACK")
+            raise
 
     def get_indexed_files(self) -> dict[str, str]:
         """Get all indexed files with their hashes."""

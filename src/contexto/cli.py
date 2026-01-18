@@ -1,6 +1,5 @@
 """CLI commands for Contexto."""
 
-import asyncio
 from pathlib import Path
 from typing import Optional
 
@@ -8,10 +7,10 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
-from contexto.graph import CodeGraph
+from contexto.graph import CodeGraph, GraphNode
 from contexto.store import Store
 from contexto.search import SearchEngine
-from contexto.output import XMLFormatter
+from contexto.output import TextFormatter
 
 app = typer.Typer(
     name="contexto",
@@ -19,6 +18,21 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 console = Console()
+
+
+def _get_db_path(project_path: Path) -> Path:
+    """Get the database path for a project."""
+    return project_path / ".contexto" / "index.db"
+
+
+def _check_index_exists(db_path: Path) -> None:
+    """Check if index exists, raise error if not."""
+    if not db_path.exists():
+        console.print(
+            f"[red]Error:[/red] No index found at {db_path}\n"
+            "Run [bold]contexto index[/bold] first."
+        )
+        raise typer.Exit(1)
 
 
 @app.command()
@@ -40,14 +54,42 @@ def index(
         console.print(f"[red]Error:[/red] {project_path} is not a directory")
         raise typer.Exit(1)
 
-    db_path = project_path / ".contexto.db"
+    contexto_dir = project_path / ".contexto"
+    db_path = contexto_dir / "index.db"
 
     if incremental and db_path.exists():
         console.print(f"Incremental indexing [bold]{project_path}[/bold]...")
         _incremental_index(project_path, db_path)
     else:
+        # Ensure .contexto directory exists
+        contexto_dir.mkdir(exist_ok=True)
         console.print(f"Indexing [bold]{project_path}[/bold]...")
         _full_index(project_path, db_path)
+
+
+def _ensure_parent_dirs(graph: CodeGraph, project_path: Path, rel_path: str) -> None:
+    """Ensure all parent directories exist in the graph for a file path.
+
+    Creates directory nodes for any missing parent directories.
+    """
+    parts = Path(rel_path).parts[:-1]  # Exclude the file name
+    current_path = ""
+    parent_id = "."
+
+    for part in parts:
+        current_path = f"{current_path}/{part}" if current_path else part
+        if current_path not in graph.nodes:
+            # Create the directory node
+            dir_node = GraphNode(
+                id=current_path,
+                name=part,
+                type="dir",
+                parent_id=parent_id,
+            )
+            graph.nodes[current_path] = dir_node
+            if parent_id in graph.nodes:
+                graph.nodes[parent_id].children_ids.append(current_path)
+        parent_id = current_path
 
 
 def _full_index(project_path: Path, db_path: Path) -> None:
@@ -60,13 +102,15 @@ def _full_index(project_path: Path, db_path: Path) -> None:
     with Store(db_path) as store:
         store.save_graph(graph)
 
-        # Save file hashes for incremental updates
+        # Compute all file hashes and save in batch (single transaction)
+        file_hashes: dict[str, str] = {}
         for node in graph.nodes.values():
             if node.type == "file" and node.file_path:
                 file_path = project_path / node.file_path
                 if file_path.exists():
-                    file_hash = Store.compute_file_hash(file_path)
-                    store.save_file_hash(node.file_path, file_hash)
+                    file_hashes[node.file_path] = Store.compute_file_hash(file_path)
+
+        store.save_file_hashes_batch(file_hashes)
 
         # Build search index
         console.print("Building search index...")
@@ -76,7 +120,7 @@ def _full_index(project_path: Path, db_path: Path) -> None:
     # Print stats
     stats = graph.get_stats(".")
     console.print(Panel(
-        f"[green]✓[/green] Indexed successfully!\n\n"
+        f"[green]Indexed successfully![/green]\n\n"
         f"  Files: {stats['files']}\n"
         f"  Classes: {stats['classes']}\n"
         f"  Functions: {stats['functions']}\n"
@@ -93,16 +137,18 @@ def _incremental_index(project_path: Path, db_path: Path) -> None:
         graph = store.load_graph(project_path)
         indexed_files = store.get_indexed_files()
 
-        # Find all current Python files
-        current_files: set[str] = set()
-        exclude_patterns = [
+        # Pre-compile exclude patterns for faster matching
+        exclude_patterns = {
             "__pycache__", ".git", ".venv", "venv", "node_modules",
-            ".pytest_cache", ".mypy_cache", "*.egg-info", "dist", "build"
-        ]
+            ".pytest_cache", ".mypy_cache", "dist", "build"
+        }
 
+        # Find all current Python files efficiently
+        current_files: set[str] = set()
         for py_file in project_path.rglob("*.py"):
-            if any(py_file.match(f"**/{pattern}/**") or py_file.match(pattern)
-                   for pattern in exclude_patterns):
+            # Check if any parent directory matches exclude patterns
+            parts = py_file.relative_to(project_path).parts
+            if any(part in exclude_patterns or part.endswith(".egg-info") for part in parts):
                 continue
             rel_path = str(py_file.relative_to(project_path))
             current_files.add(rel_path)
@@ -110,6 +156,7 @@ def _incremental_index(project_path: Path, db_path: Path) -> None:
         files_added = 0
         files_updated = 0
         files_removed = 0
+        new_hashes: dict[str, str] = {}
 
         # Check for new or modified files
         for rel_path in current_files:
@@ -118,30 +165,38 @@ def _incremental_index(project_path: Path, db_path: Path) -> None:
             stored_hash = indexed_files.get(rel_path)
 
             if stored_hash is None:
-                # New file
+                # New file - ensure parent directory exists in graph
                 parent_id = str(Path(rel_path).parent)
                 if parent_id == ".":
                     parent_id = "."
+                else:
+                    # Ensure all parent directories exist in the graph
+                    _ensure_parent_dirs(graph, project_path, rel_path)
+
                 graph.add_single_file(file_path, rel_path, parent_id)
-                store.save_file_hash(rel_path, current_hash)
+                new_hashes[rel_path] = current_hash
                 files_added += 1
             elif stored_hash != current_hash:
-                # Modified file
+                # Modified file - parent already exists
                 parent_id = str(Path(rel_path).parent)
                 if parent_id == ".":
                     parent_id = "."
                 graph.add_single_file(file_path, rel_path, parent_id)
-                store.save_file_hash(rel_path, current_hash)
+                new_hashes[rel_path] = current_hash
                 files_updated += 1
 
-        # Check for deleted files
-        for rel_path in indexed_files:
-            if rel_path not in current_files:
-                store.delete_file_nodes(rel_path)
-                files_removed += 1
+        # Check for deleted files - collect all to delete in batch
+        files_to_delete = [rel_path for rel_path in indexed_files if rel_path not in current_files]
+        if files_to_delete:
+            store.delete_file_nodes_batch(files_to_delete)
+            files_removed = len(files_to_delete)
 
         # Save updated graph
         store.save_graph(graph)
+
+        # Save new file hashes in batch
+        if new_hashes:
+            store.save_file_hashes_batch(new_hashes)
 
         # Rebuild search index
         console.print("Rebuilding search index...")
@@ -151,7 +206,7 @@ def _incremental_index(project_path: Path, db_path: Path) -> None:
     # Print stats
     stats = graph.get_stats(".")
     console.print(Panel(
-        f"[green]✓[/green] Incremental index complete!\n\n"
+        f"[green]Incremental index complete![/green]\n\n"
         f"  Added: {files_added} files\n"
         f"  Updated: {files_updated} files\n"
         f"  Removed: {files_removed} files\n\n"
@@ -164,31 +219,6 @@ def _incremental_index(project_path: Path, db_path: Path) -> None:
     ))
 
 
-@app.command()
-def serve(
-    path: Optional[Path] = typer.Argument(
-        None,
-        help="Path to the project (default: current directory)",
-    ),
-) -> None:
-    """Start the MCP server for LLM integration."""
-    project_path = (path or Path.cwd()).resolve()
-    db_path = project_path / ".contexto.db"
-
-    if not db_path.exists():
-        console.print(
-            f"[red]Error:[/red] No index found at {db_path}\n"
-            "Run [bold]contexto index[/bold] first."
-        )
-        raise typer.Exit(1)
-
-    # Import here to avoid loading mcp unless needed
-    from contexto.mcp_server import run_server
-
-    # Run the server
-    asyncio.run(run_server(project_path))
-
-
 @app.command(name="map")
 def show_map(
     path: Optional[Path] = typer.Argument(
@@ -198,17 +228,11 @@ def show_map(
 ) -> None:
     """Show the project map."""
     project_path = (path or Path.cwd()).resolve()
-    db_path = project_path / ".contexto.db"
-
-    if not db_path.exists():
-        console.print(
-            f"[red]Error:[/red] No index found at {db_path}\n"
-            "Run [bold]contexto index[/bold] first."
-        )
-        raise typer.Exit(1)
+    db_path = _get_db_path(project_path)
+    _check_index_exists(db_path)
 
     with Store(db_path) as store:
-        formatter = XMLFormatter()
+        formatter = TextFormatter()
 
         root = store.get_node(".")
         if not root:
@@ -216,17 +240,18 @@ def show_map(
             raise typer.Exit(1)
 
         children = store.get_children(".")
-        child_stats = []
+        dir_children = [child for child in children if child.type == "dir"]
 
-        for child in children:
-            if child.type == "dir":
-                stats = store.get_stats(child.id)
-                child_stats.append((child.id, stats))
+        # Get stats for all directories in a single batch query
+        dir_ids = [child.id for child in dir_children] + ["."]
+        all_stats = store.get_stats_batch(dir_ids)
+
+        child_stats = [(child.id, all_stats.get(child.id, {})) for child in dir_children]
 
         output = formatter.format_map(
             root_name=root.name,
             root_path=str(project_path),
-            stats=store.get_stats("."),
+            stats=all_stats.get(".", {}),
             children=child_stats,
         )
 
@@ -247,17 +272,11 @@ def expand(
 ) -> None:
     """Expand a node to see its children."""
     project_path = (path or Path.cwd()).resolve()
-    db_path = project_path / ".contexto.db"
-
-    if not db_path.exists():
-        console.print(
-            f"[red]Error:[/red] No index found at {db_path}\n"
-            "Run [bold]contexto index[/bold] first."
-        )
-        raise typer.Exit(1)
+    db_path = _get_db_path(project_path)
+    _check_index_exists(db_path)
 
     with Store(db_path) as store:
-        formatter = XMLFormatter()
+        formatter = TextFormatter()
 
         node = store.get_node(node_path)
         if not node:
@@ -265,9 +284,47 @@ def expand(
             raise typer.Exit(1)
 
         children = store.get_children(node_path)
-        stats_map = {child.id: store.get_stats(child.id) for child in children}
+
+        # Get stats for all children in a single batch query
+        child_ids = [child.id for child in children]
+        stats_map = store.get_stats_batch(child_ids) if child_ids else {}
 
         output = formatter.format_expand(node, children, stats_map)
+        console.print(output)
+
+
+@app.command()
+def inspect(
+    entity_path: str = typer.Argument(
+        ...,
+        help="Entity to inspect (e.g., 'src/api/users.py:UserController.get_user')",
+    ),
+    path: Optional[Path] = typer.Option(
+        None,
+        "--project", "-p",
+        help="Path to the project (default: current directory)",
+    ),
+) -> None:
+    """Inspect an entity to see its details and relationships."""
+    project_path = (path or Path.cwd()).resolve()
+    db_path = _get_db_path(project_path)
+    _check_index_exists(db_path)
+
+    with Store(db_path) as store:
+        formatter = TextFormatter()
+
+        node = store.get_node(entity_path)
+        if not node:
+            console.print(f"[red]Error:[/red] Entity not found: {entity_path}")
+            raise typer.Exit(1)
+
+        # Get calls to (what this entity calls)
+        calls_to = node.calls if node.calls else []
+
+        # Get called by (what calls this entity)
+        called_by = store.get_callers(node.name)
+
+        output = formatter.format_inspect(node, calls_to, called_by)
         console.print(output)
 
 
@@ -290,23 +347,74 @@ def search(
 ) -> None:
     """Search for entities by keyword."""
     project_path = (path or Path.cwd()).resolve()
-    db_path = project_path / ".contexto.db"
-
-    if not db_path.exists():
-        console.print(
-            f"[red]Error:[/red] No index found at {db_path}\n"
-            "Run [bold]contexto index[/bold] first."
-        )
-        raise typer.Exit(1)
+    db_path = _get_db_path(project_path)
+    _check_index_exists(db_path)
 
     with Store(db_path) as store:
         search_engine = SearchEngine(store)
-        formatter = XMLFormatter()
+        formatter = TextFormatter()
 
         results = search_engine.search(query, limit=limit)
         output = formatter.format_search_results(query, results)
 
         console.print(output)
+
+
+@app.command()
+def read(
+    file_path: str = typer.Argument(
+        ...,
+        help="File to read (e.g., 'src/api/users.py')",
+    ),
+    start: Optional[int] = typer.Argument(
+        None,
+        help="Start line (optional)",
+    ),
+    end: Optional[int] = typer.Argument(
+        None,
+        help="End line (optional)",
+    ),
+    path: Optional[Path] = typer.Option(
+        None,
+        "--project", "-p",
+        help="Path to the project (default: current directory)",
+    ),
+) -> None:
+    """Read source code from a file."""
+    project_path = (path or Path.cwd()).resolve()
+    db_path = _get_db_path(project_path)
+    _check_index_exists(db_path)
+
+    # Resolve the file path
+    full_path = project_path / file_path
+    if not full_path.exists():
+        console.print(f"[red]Error:[/red] File not found: {file_path}")
+        raise typer.Exit(1)
+
+    # Read file content
+    content = full_path.read_text()
+    lines = content.split("\n")
+
+    # Apply line range if specified
+    start_line = start or 1
+    end_line = end or len(lines)
+
+    # Validate line range
+    if start_line < 1:
+        start_line = 1
+    if end_line > len(lines):
+        end_line = len(lines)
+    if start_line > end_line:
+        console.print(f"[red]Error:[/red] Invalid line range: {start_line}-{end_line}")
+        raise typer.Exit(1)
+
+    # Extract requested lines
+    selected_lines = lines[start_line - 1:end_line]
+    selected_content = "\n".join(selected_lines)
+
+    formatter = TextFormatter()
+    output = formatter.format_read(file_path, selected_content, start_line)
+    console.print(output)
 
 
 if __name__ == "__main__":
