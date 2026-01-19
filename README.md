@@ -1,10 +1,15 @@
 # Contexto
 
+[![PyPI version](https://img.shields.io/pypi/v/contexto.svg)](https://pypi.org/project/contexto/)
+[![Python](https://img.shields.io/pypi/pyversions/contexto.svg)](https://pypi.org/project/contexto/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/ferdinandobons/contexto/pulls)
+
 A CLI tool to explore codebases efficiently. Designed for LLMs and coding agents as a smarter alternative to `ls`, `grep`, and `find`.
 
 **All output is JSON** for easy parsing by LLMs and programmatic consumption.
 
-## Supported Languages
+## 🌍 Supported Languages
 
 | Language | Extensions | Entities Extracted |
 |----------|------------|-------------------|
@@ -17,13 +22,13 @@ A CLI tool to explore codebases efficiently. Designed for LLMs and coding agents
 
 All parsers use [tree-sitter](https://tree-sitter.github.io/) for fast, accurate AST-based parsing.
 
-## Installation
+## 📦 Installation
 
 ```bash
 pip install contexto
 ```
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
 # 1. Index your project
@@ -39,7 +44,7 @@ contexto hierarchy BaseModel          # Find all subclasses
 contexto read src/api/users.py 10 50  # Read specific lines
 ```
 
-## Commands
+## 📖 Commands
 
 ### `contexto index [path]`
 
@@ -220,7 +225,7 @@ $ contexto read src/api/users.py 15 20
 
 Use line ranges from `expand` or `inspect` to read specific functions.
 
-## Use with LLMs
+## 🤖 Use with LLMs
 
 Contexto is designed for coding agents like Claude Code. Instead of using `ls`, `grep`, and `find`:
 
@@ -236,7 +241,7 @@ contexto search "authenticate"
 contexto expand src/api/auth.py
 ```
 
-### Benefits for LLMs
+### ✨ Benefits for LLMs
 
 | Tool | Output | Structure | Relationships |
 |------|--------|-----------|---------------|
@@ -252,7 +257,7 @@ contexto expand src/api/auth.py
 - **Search caching** - Repeated searches are cached for faster response
 - **Incremental indexing** - Only changed files are re-indexed, with incremental search index updates
 
-## How It Works
+## ⚙️ How It Works
 
 Contexto uses tree-sitter to parse source files and builds a navigable graph:
 
@@ -303,7 +308,7 @@ The graph is stored in SQLite with:
               └───────────────┘
 ```
 
-## Development
+## 🛠️ Development
 
 ```bash
 # Install dev dependencies
@@ -316,6 +321,6 @@ pytest
 ruff check src/ tests/
 ```
 
-## License
+## 📄 License
 
 MIT
