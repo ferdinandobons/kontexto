@@ -1,9 +1,9 @@
-# Codemap
+# Codecompass
 
-[![PyPI version](https://img.shields.io/pypi/v/codemap.svg)](https://pypi.org/project/codemap/)
+[![PyPI version](https://img.shields.io/pypi/v/codecompass.svg)](https://pypi.org/project/codecompass/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/ferdinandobons/codemap/pulls)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/ferdinandobons/codecompass/pulls)
 
 A CLI tool to explore codebases efficiently. Designed for LLMs and coding agents as a smarter alternative to `ls`, `grep`, and `find`.
 
@@ -25,7 +25,7 @@ All parsers use [tree-sitter](https://tree-sitter.github.io/) for fast, accurate
 ## 📦 Installation
 
 ```bash
-pip install codemap
+pip install codecompass
 ```
 
 ## 🚀 Quick Start
@@ -33,30 +33,30 @@ pip install codemap
 ```bash
 # 1. Index your project
 cd /path/to/your/project
-codemap index
+codecompass index
 
 # 2. Explore the codebase
-codemap map                          # See project structure
-codemap expand src/api               # Expand a directory
-codemap search "authentication"      # Search for code
-codemap inspect src/api:UserController   # Inspect entity details
-codemap hierarchy BaseModel          # Find all subclasses
-codemap read src/api/users.py 10 50  # Read specific lines
+codecompass map                          # See project structure
+codecompass expand src/api               # Expand a directory
+codecompass search "authentication"      # Search for code
+codecompass inspect src/api:UserController   # Inspect entity details
+codecompass hierarchy BaseModel          # Find all subclasses
+codecompass read src/api/users.py 10 50  # Read specific lines
 ```
 
 ## 📖 Commands
 
-### `codemap index [path]`
+### `codecompass index [path]`
 
 Index a project and build the navigation graph. Automatically detects and parses all supported languages.
 
 ```bash
-codemap index                    # Index current directory
-codemap index /path/to/project   # Index specific project
-codemap index -i                 # Incremental update (faster)
+codecompass index                    # Index current directory
+codecompass index /path/to/project   # Index specific project
+codecompass index -i                 # Incremental update (faster)
 ```
 
-Creates a `.codemap/index.db` database with:
+Creates a `.codecompass/index.db` database with:
 - File and directory structure
 - Classes, methods, functions (and language-specific entities)
 - Signatures and docstrings
@@ -65,12 +65,12 @@ Creates a `.codemap/index.db` database with:
 - TF-IDF search index
 - Language metadata for each entity
 
-### `codemap map [path]`
+### `codecompass map [path]`
 
 Show a compact map of the project structure.
 
 ```bash
-$ codemap map
+$ codecompass map
 ```
 
 ```json
@@ -86,12 +86,12 @@ $ codemap map
 }
 ```
 
-### `codemap expand <path>`
+### `codecompass expand <path>`
 
 Expand a node to see its children.
 
 ```bash
-$ codemap expand src/api/users.py
+$ codecompass expand src/api/users.py
 ```
 
 ```json
@@ -118,12 +118,12 @@ $ codemap expand src/api/users.py
 }
 ```
 
-### `codemap inspect <entity>`
+### `codecompass inspect <entity>`
 
 Show detailed info about an entity: signature, docstring, relationships.
 
 ```bash
-$ codemap inspect src/api/users.py:UserController.get_user
+$ codecompass inspect src/api/users.py:UserController.get_user
 ```
 
 ```json
@@ -144,12 +144,12 @@ $ codemap inspect src/api/users.py:UserController.get_user
 }
 ```
 
-### `codemap search <query>`
+### `codecompass search <query>`
 
 Search for entities by keyword (names, docstrings, signatures).
 
 ```bash
-$ codemap search "authentication"
+$ codecompass search "authentication"
 ```
 
 ```json
@@ -174,12 +174,12 @@ $ codemap search "authentication"
 Options:
 - `--limit, -l`: Maximum number of results (default: 10)
 
-### `codemap hierarchy <base_class>`
+### `codecompass hierarchy <base_class>`
 
 Find all classes that inherit from a given base class.
 
 ```bash
-$ codemap hierarchy BaseModel
+$ codecompass hierarchy BaseModel
 ```
 
 ```json
@@ -206,12 +206,12 @@ $ codemap hierarchy BaseModel
 }
 ```
 
-### `codemap read <file> [start] [end]`
+### `codecompass read <file> [start] [end]`
 
 Read source code from a file. Outputs raw code (not JSON).
 
 ```bash
-$ codemap read src/api/users.py 15 20
+$ codecompass read src/api/users.py 15 20
 ```
 
 ```python
@@ -227,7 +227,7 @@ Use line ranges from `expand` or `inspect` to read specific functions.
 
 ## 🤖 Use with LLMs
 
-Codemap is designed for coding agents like Claude Code. Instead of using `ls`, `grep`, and `find`:
+Codecompass is designed for coding agents like Claude Code. Instead of using `ls`, `grep`, and `find`:
 
 ```bash
 # Before: multiple commands, unstructured output
@@ -236,9 +236,9 @@ grep -r "authenticate" src/
 cat src/api/auth.py
 
 # After: JSON output, easy to parse
-codemap map
-codemap search "authenticate"
-codemap expand src/api/auth.py
+codecompass map
+codecompass search "authenticate"
+codecompass expand src/api/auth.py
 ```
 
 ### ✨ Benefits for LLMs
@@ -248,7 +248,7 @@ codemap expand src/api/auth.py
 | `ls` | File names only | None | None |
 | `grep` | Matching lines | None | None |
 | `find` | File paths | None | None |
-| **codemap** | Structured JSON | Classes, functions, methods | Calls, called-by, inheritance |
+| **codecompass** | Structured JSON | Classes, functions, methods | Calls, called-by, inheritance |
 
 ### Features
 
@@ -259,7 +259,7 @@ codemap expand src/api/auth.py
 
 ## ⚙️ How It Works
 
-Codemap uses tree-sitter to parse source files and builds a navigable graph:
+Codecompass uses tree-sitter to parse source files and builds a navigable graph:
 
 ```
 Project Root

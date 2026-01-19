@@ -1,5 +1,5 @@
 [project]
-name = "codemap"
+name = "codecompass"
 version = "0.1.0"
 description = "A navigable graph of your codebase for LLMs. Supports Python, JavaScript/TypeScript, Go, Rust, and Java."
 readme = "README.md"
@@ -31,9 +31,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ferdinandobons/codemap"
-Repository = "https://github.com/ferdinandobons/codemap"
-Issues = "https://github.com/ferdinandobons/codemap/issues"
+Homepage = "https://github.com/ferdinandobons/codecompass"
+Repository = "https://github.com/ferdinandobons/codecompass"
+Issues = "https://github.com/ferdinandobons/codecompass/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -50,7 +50,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 
 [tool.coverage.run]
-source = ["src/codemap"]
+source = ["src/codecompass"]
 branch = true
 
 [tool.coverage.report]
@@ -61,14 +61,14 @@ exclude_lines = [
 ]
 
 [project.scripts]
-codemap = "codemap.cli:app"
+codecompass = "codecompass.cli:app"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/codemap"]
+packages = ["src/codecompass"]
 
 [tool.bandit]
 exclude_dirs = ["tests"]

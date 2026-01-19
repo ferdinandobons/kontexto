@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from codemap.parsers.python_parser import PythonParser
+from codecompass.parsers.python_parser import PythonParser
 
 
 class TestPythonParser:

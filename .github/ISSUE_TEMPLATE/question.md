@@ -1,6 +1,6 @@
 ---
 name: Question
-about: Ask a question about Codemap
+about: Ask a question about Codecompass
 title: '[QUESTION] '
 labels: question
 assignees: ''
@@ -18,7 +18,7 @@ Describe what you've already attempted.
 ## Environment (if relevant)
 - OS:
 - Python version:
-- Codemap version:
+- Codecompass version:
 
 ## Code/Configuration (if relevant)
 ```python

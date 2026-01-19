@@ -2,8 +2,8 @@
 
 import json
 
-from codemap.graph import GraphNode
-from codemap.output import JsonFormatter, _node_to_dict
+from codecompass.graph import GraphNode
+from codecompass.output import JsonFormatter, _node_to_dict
 
 
 class TestNodeToDict:

@@ -8,7 +8,7 @@ import tree_sitter_javascript as tsjs
 import tree_sitter_typescript as tsts
 from tree_sitter import Language, Parser, Node
 
-from codemap.parsers.base import BaseParser, CodeEntity, LanguageConfig
+from codecompass.parsers.base import BaseParser, CodeEntity, LanguageConfig
 
 logger = logging.getLogger(__name__)
 

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from codemap.parsers.java_parser import JavaParser
+from codecompass.parsers.java_parser import JavaParser
 
 
 class TestJavaParser:

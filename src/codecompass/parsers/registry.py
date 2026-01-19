@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Optional
 
-from codemap.parsers.base import BaseParser
+from codecompass.parsers.base import BaseParser
 
 
 class ParserRegistry:
@@ -32,11 +32,11 @@ class ParserRegistry:
     def _initialize_parsers(self) -> None:
         """Initialize all available parsers."""
         # Import parsers here to avoid circular imports
-        from codemap.parsers.python_parser import PythonParser
-        from codemap.parsers.javascript_parser import JavaScriptParser
-        from codemap.parsers.go_parser import GoParser
-        from codemap.parsers.rust_parser import RustParser
-        from codemap.parsers.java_parser import JavaParser
+        from codecompass.parsers.python_parser import PythonParser
+        from codecompass.parsers.javascript_parser import JavaScriptParser
+        from codecompass.parsers.go_parser import GoParser
+        from codecompass.parsers.rust_parser import RustParser
+        from codecompass.parsers.java_parser import JavaParser
 
         parsers = [
             PythonParser(),

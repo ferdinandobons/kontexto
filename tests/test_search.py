@@ -1,8 +1,8 @@
 """Tests for the search engine."""
 
-from codemap.graph import CodeGraph
-from codemap.store import Store
-from codemap.search import SearchEngine
+from codecompass.graph import CodeGraph
+from codecompass.store import Store
+from codecompass.search import SearchEngine
 
 
 class TestSearchEngine:
@@ -243,7 +243,7 @@ class TestIncrementalIndexing:
 
     def test_update_index_for_nodes(self, temp_dir):
         """Test updating search index for specific nodes."""
-        from codemap.graph import GraphNode
+        from codecompass.graph import GraphNode
 
         db_path = temp_dir / "test.db"
 
@@ -299,7 +299,7 @@ class TestIncrementalIndexing:
 
     def test_update_index_clears_cache(self, temp_dir):
         """Test that updating index clears the result cache."""
-        from codemap.graph import GraphNode
+        from codecompass.graph import GraphNode
 
         db_path = temp_dir / "test.db"
 
@@ -337,7 +337,7 @@ class TestIncrementalIndexing:
 
     def test_remove_nodes_from_index(self, temp_dir):
         """Test removing nodes from search index."""
-        from codemap.graph import GraphNode
+        from codecompass.graph import GraphNode
 
         db_path = temp_dir / "test.db"
 
@@ -378,7 +378,7 @@ class TestIncrementalIndexing:
 
     def test_remove_nodes_clears_cache(self, temp_dir):
         """Test that removing nodes clears the result cache."""
-        from codemap.graph import GraphNode
+        from codecompass.graph import GraphNode
 
         db_path = temp_dir / "test.db"
 

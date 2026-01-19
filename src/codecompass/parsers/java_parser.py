@@ -7,7 +7,7 @@ from typing import Optional
 import tree_sitter_java as tsjava
 from tree_sitter import Language, Parser, Node
 
-from codemap.parsers.base import BaseParser, CodeEntity, LanguageConfig
+from codecompass.parsers.base import BaseParser, CodeEntity, LanguageConfig
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 """Tests for the AST parser."""
 
-from codemap.parser import PythonParser
+from codecompass.parser import PythonParser
 
 
 class TestPythonParser:

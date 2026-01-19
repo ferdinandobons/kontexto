@@ -85,8 +85,8 @@ dmypy.json
 .AppleDouble
 .LSOverride
 
-# Codemap database
-.codemap/
+# Codecompass database
+.codecompass/
 
 # Test project (for development)
 test-project/

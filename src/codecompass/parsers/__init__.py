@@ -1,4 +1,4 @@
-"""Multi-language parser support for Codemap.
+"""Multi-language parser support for Codecompass.
 
 Supported languages:
 - Python (.py, .pyi)
@@ -9,13 +9,13 @@ Supported languages:
 - Java (.java)
 """
 
-from codemap.parsers.base import (
+from codecompass.parsers.base import (
     BaseParser,
     CodeEntity,
     LanguageConfig,
     DEFAULT_EXCLUDE_PATTERNS,
 )
-from codemap.parsers.registry import ParserRegistry, get_registry
+from codecompass.parsers.registry import ParserRegistry, get_registry
 
 __all__ = [
     "BaseParser",

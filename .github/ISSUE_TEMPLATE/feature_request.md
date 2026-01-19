@@ -18,7 +18,7 @@ Describe a specific use case where this feature would be helpful.
 
 ```
 Example command or workflow:
-codemap <new-command> --flag
+codecompass <new-command> --flag
 ```
 
 ## Alternatives Considered

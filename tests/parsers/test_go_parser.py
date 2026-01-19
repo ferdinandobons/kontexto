@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from codemap.parsers.go_parser import GoParser
+from codecompass.parsers.go_parser import GoParser
 
 
 class TestGoParser:

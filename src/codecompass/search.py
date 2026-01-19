@@ -6,8 +6,8 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from codemap.store import Store
-    from codemap.graph import GraphNode
+    from codecompass.store import Store
+    from codecompass.graph import GraphNode
 
 # Pre-compiled regex patterns for performance (2x faster tokenization)
 _TOKENIZE_PATTERN = re.compile(r"[a-zA-Z][a-zA-Z0-9]*")
@@ -388,7 +388,7 @@ class SearchEngine:
         )
 
         # Build node lookup
-        from codemap.graph import GraphNode
+        from codecompass.graph import GraphNode
 
         node_lookup = {}
         for row in cursor.fetchall():

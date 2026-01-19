@@ -1,1 +1,1 @@
-"""Test suite for Codemap."""
+"""Test suite for Codecompass."""
