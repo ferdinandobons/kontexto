@@ -252,7 +252,11 @@ class TestIncrementalIndexing:
             graph = CodeGraph(temp_dir)
             graph.nodes["."] = GraphNode(id=".", name="root", type="dir")
             graph.nodes["test.py"] = GraphNode(
-                id="test.py", name="test.py", type="file", parent_id=".", file_path="test.py"
+                id="test.py",
+                name="test.py",
+                type="file",
+                parent_id=".",
+                file_path="test.py",
             )
             graph.nodes["test.py:foo"] = GraphNode(
                 id="test.py:foo",
@@ -303,7 +307,11 @@ class TestIncrementalIndexing:
             graph = CodeGraph(temp_dir)
             graph.nodes["."] = GraphNode(id=".", name="root", type="dir")
             graph.nodes["test.py"] = GraphNode(
-                id="test.py", name="test.py", type="file", parent_id=".", file_path="test.py"
+                id="test.py",
+                name="test.py",
+                type="file",
+                parent_id=".",
+                file_path="test.py",
             )
             graph.nodes["test.py:foo"] = GraphNode(
                 id="test.py:foo",
@@ -337,7 +345,11 @@ class TestIncrementalIndexing:
             graph = CodeGraph(temp_dir)
             graph.nodes["."] = GraphNode(id=".", name="root", type="dir")
             graph.nodes["test.py"] = GraphNode(
-                id="test.py", name="test.py", type="file", parent_id=".", file_path="test.py"
+                id="test.py",
+                name="test.py",
+                type="file",
+                parent_id=".",
+                file_path="test.py",
             )
             graph.nodes["test.py:removable"] = GraphNode(
                 id="test.py:removable",
@@ -374,7 +386,11 @@ class TestIncrementalIndexing:
             graph = CodeGraph(temp_dir)
             graph.nodes["."] = GraphNode(id=".", name="root", type="dir")
             graph.nodes["test.py"] = GraphNode(
-                id="test.py", name="test.py", type="file", parent_id=".", file_path="test.py"
+                id="test.py",
+                name="test.py",
+                type="file",
+                parent_id=".",
+                file_path="test.py",
             )
             graph.nodes["test.py:foo"] = GraphNode(
                 id="test.py:foo",

@@ -154,10 +154,12 @@ class TestStore:
 
         with Store(db_path) as store:
             # Add some test file hashes
-            store.save_file_hashes_batch({
-                "test1.py": "hash1",
-                "test2.py": "hash2",
-            })
+            store.save_file_hashes_batch(
+                {
+                    "test1.py": "hash1",
+                    "test2.py": "hash2",
+                }
+            )
 
             store.delete_file_nodes_batch(["test1.py", "test2.py"])
 
@@ -170,10 +172,12 @@ class TestStore:
 
         with Store(db_path) as store:
             # Add some file hashes first
-            store.save_file_hashes_batch({
-                "file1.py": "hash1",
-                "file2.py": "hash2",
-            })
+            store.save_file_hashes_batch(
+                {
+                    "file1.py": "hash1",
+                    "file2.py": "hash2",
+                }
+            )
 
             indexed = store.get_indexed_files()
 
@@ -300,7 +304,11 @@ class TestStore:
             graph = CodeGraph(temp_dir)
             graph.nodes["."] = GraphNode(id=".", name="root", type="dir")
             graph.nodes["test.py"] = GraphNode(
-                id="test.py", name="test.py", type="file", parent_id=".", file_path="test.py"
+                id="test.py",
+                name="test.py",
+                type="file",
+                parent_id=".",
+                file_path="test.py",
             )
             # Class with base class containing underscore
             graph.nodes["test.py:MyClass"] = GraphNode(
@@ -329,7 +337,11 @@ class TestStore:
             graph = CodeGraph(temp_dir)
             graph.nodes["."] = GraphNode(id=".", name="root", type="dir")
             graph.nodes["test.py"] = GraphNode(
-                id="test.py", name="test.py", type="file", parent_id=".", file_path="test.py"
+                id="test.py",
+                name="test.py",
+                type="file",
+                parent_id=".",
+                file_path="test.py",
             )
             # Function with target at start of calls list
             graph.nodes["test.py:func1"] = GraphNode(
@@ -385,7 +397,11 @@ class TestStore:
             graph = CodeGraph(temp_dir)
             graph.nodes["."] = GraphNode(id=".", name="root", type="dir")
             graph.nodes["test.py"] = GraphNode(
-                id="test.py", name="test.py", type="file", parent_id=".", file_path="test.py"
+                id="test.py",
+                name="test.py",
+                type="file",
+                parent_id=".",
+                file_path="test.py",
             )
             graph.nodes["test.py:MyClass"] = GraphNode(
                 id="test.py:MyClass",

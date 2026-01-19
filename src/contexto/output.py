@@ -12,6 +12,7 @@ def _node_to_dict(node: GraphNode) -> dict[str, Any]:
         "id": node.id,
         "name": node.name,
         "type": node.type,
+        "language": node.language,
         "parent_id": node.parent_id,
         "file_path": node.file_path,
         "line_start": node.line_start,
@@ -28,7 +29,9 @@ class JsonFormatter:
     """Formats graph data as JSON for programmatic consumption by LLMs."""
 
     @staticmethod
-    def format_map(root_name: str, root_path: str, stats: dict, children: list[tuple[str, dict]]) -> str:
+    def format_map(
+        root_name: str, root_path: str, stats: dict, children: list[tuple[str, dict]]
+    ) -> str:
         """Format the project map as JSON."""
         data = {
             "command": "map",
@@ -43,7 +46,9 @@ class JsonFormatter:
         return json.dumps(data, indent=2)
 
     @staticmethod
-    def format_expand(node: GraphNode, children: list[GraphNode], stats_map: dict[str, dict]) -> str:
+    def format_expand(
+        node: GraphNode, children: list[GraphNode], stats_map: dict[str, dict]
+    ) -> str:
         """Format expanded node with children as JSON."""
         data = {
             "command": "expand",
@@ -59,7 +64,9 @@ class JsonFormatter:
         return json.dumps(data, indent=2)
 
     @staticmethod
-    def format_inspect(node: GraphNode, calls_to: list[str], called_by: list[str]) -> str:
+    def format_inspect(
+        node: GraphNode, calls_to: list[str], called_by: list[str]
+    ) -> str:
         """Format detailed inspection of an entity as JSON."""
         data = {
             "command": "inspect",
@@ -70,7 +77,9 @@ class JsonFormatter:
         return json.dumps(data, indent=2)
 
     @staticmethod
-    def format_search_results(query: str, results: list[tuple[GraphNode, float]]) -> str:
+    def format_search_results(
+        query: str, results: list[tuple[GraphNode, float]]
+    ) -> str:
         """Format search results as JSON."""
         data = {
             "command": "search",

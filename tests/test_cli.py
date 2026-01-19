@@ -159,7 +159,9 @@ class TestInspectCommand:
         """Test that inspect returns valid JSON."""
         project_path, _ = indexed_project
 
-        result = runner.invoke(app, ["inspect", "src/utils/helpers.py:Calculator", "-p", str(project_path)])
+        result = runner.invoke(
+            app, ["inspect", "src/utils/helpers.py:Calculator", "-p", str(project_path)]
+        )
 
         assert result.exit_code == 0
         data = json.loads(result.stdout)
@@ -172,7 +174,9 @@ class TestInspectCommand:
         """Test inspecting a class."""
         project_path, _ = indexed_project
 
-        result = runner.invoke(app, ["inspect", "src/utils/helpers.py:Calculator", "-p", str(project_path)])
+        result = runner.invoke(
+            app, ["inspect", "src/utils/helpers.py:Calculator", "-p", str(project_path)]
+        )
 
         assert result.exit_code == 0
         data = json.loads(result.stdout)
@@ -183,7 +187,9 @@ class TestInspectCommand:
         """Test inspecting a function."""
         project_path, _ = indexed_project
 
-        result = runner.invoke(app, ["inspect", "src/main.py:main", "-p", str(project_path)])
+        result = runner.invoke(
+            app, ["inspect", "src/main.py:main", "-p", str(project_path)]
+        )
 
         assert result.exit_code == 0
         data = json.loads(result.stdout)
@@ -232,7 +238,9 @@ class TestSearchCommand:
         """Test search with limit option."""
         project_path, _ = indexed_project
 
-        result = runner.invoke(app, ["search", "def", "-l", "2", "-p", str(project_path)])
+        result = runner.invoke(
+            app, ["search", "def", "-l", "2", "-p", str(project_path)]
+        )
 
         assert result.exit_code == 0
         data = json.loads(result.stdout)
@@ -242,7 +250,9 @@ class TestSearchCommand:
         """Test search with no results."""
         project_path, _ = indexed_project
 
-        result = runner.invoke(app, ["search", "xyznonexistent", "-p", str(project_path)])
+        result = runner.invoke(
+            app, ["search", "xyznonexistent", "-p", str(project_path)]
+        )
 
         assert result.exit_code == 0
         data = json.loads(result.stdout)
@@ -277,7 +287,9 @@ class TestReadCommand:
         """Test reading file with line range."""
         project_path, _ = indexed_project
 
-        result = runner.invoke(app, ["read", "src/main.py", "1", "5", "-p", str(project_path)])
+        result = runner.invoke(
+            app, ["read", "src/main.py", "1", "5", "-p", str(project_path)]
+        )
 
         assert result.exit_code == 0
         # Raw content should have 5 lines
@@ -339,7 +351,9 @@ class TestHierarchyCommand:
         """Test hierarchy when no subclasses exist."""
         project_path, _ = indexed_project_with_inheritance
 
-        result = runner.invoke(app, ["hierarchy", "NonexistentBase", "-p", str(project_path)])
+        result = runner.invoke(
+            app, ["hierarchy", "NonexistentBase", "-p", str(project_path)]
+        )
 
         assert result.exit_code == 0
         data = json.loads(result.stdout)
@@ -399,7 +413,9 @@ class TestCLIIntegration:
         assert result.exit_code == 0
 
         # Hierarchy
-        result = runner.invoke(app, ["hierarchy", "BaseModel", "-p", str(project_with_inheritance)])
+        result = runner.invoke(
+            app, ["hierarchy", "BaseModel", "-p", str(project_with_inheritance)]
+        )
         assert result.exit_code == 0
         data = json.loads(result.stdout)
         assert data["count"] >= 3  # User, Product, Order
@@ -412,7 +428,9 @@ class TestCLIEdgeCases:
         """Test read with invalid line range (start > end)."""
         project_path, _ = indexed_project
 
-        result = runner.invoke(app, ["read", "src/main.py", "10", "5", "-p", str(project_path)])
+        result = runner.invoke(
+            app, ["read", "src/main.py", "10", "5", "-p", str(project_path)]
+        )
 
         assert result.exit_code == 1
         assert "Invalid line range" in result.stdout

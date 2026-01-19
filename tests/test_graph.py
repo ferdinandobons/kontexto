@@ -69,7 +69,11 @@ class TestCodeGraph:
         # Check parent-child relationships
         src_node = graph.nodes["src"]
         assert src_node.parent_id == "."
-        assert "." in [graph.nodes[c].parent_id for c in graph.nodes if graph.nodes[c].parent_id == "."]
+        assert "." in [
+            graph.nodes[c].parent_id
+            for c in graph.nodes
+            if graph.nodes[c].parent_id == "."
+        ]
 
     def test_get_children(self, sample_project):
         """Test getting children of a node."""
@@ -117,7 +121,7 @@ class TestCodeGraph:
 
         # Create a new file
         new_file = sample_project / "src" / "new_module.py"
-        new_file.write_text('def new_func(): pass')
+        new_file.write_text("def new_func(): pass")
 
         # Add it to the graph
         graph.add_single_file(new_file, "src/new_module.py", "src")
@@ -132,15 +136,18 @@ class TestCodeGraph:
 
         # Update main.py with new content
         main_py = sample_project / "src" / "main.py"
-        main_py.write_text('''
+        main_py.write_text("""
 def func1(): pass
 def func2(): pass
 def func3(): pass
-''')
+""")
 
         graph.add_single_file(main_py, "src/main.py", "src")
 
         # Should have new function count
-        main_functions = [n for n in graph.nodes.values()
-                         if n.file_path == "src/main.py" and n.type == "function"]
+        main_functions = [
+            n
+            for n in graph.nodes.values()
+            if n.file_path == "src/main.py" and n.type == "function"
+        ]
         assert len(main_functions) == 3

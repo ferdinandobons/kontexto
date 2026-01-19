@@ -4,7 +4,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from contexto.parser import PythonParser
+from contexto.parsers import get_registry, DEFAULT_EXCLUDE_PATTERNS
+from contexto.parsers.base import BaseParser
 
 
 @dataclass
@@ -13,7 +14,7 @@ class GraphNode:
 
     id: str
     name: str
-    type: str  # 'dir', 'file', 'class', 'function', 'method'
+    type: str  # 'dir', 'file', 'class', 'function', 'method', 'interface', 'struct', 'trait', 'impl', 'enum', 'type'
     parent_id: Optional[str] = None
     file_path: Optional[str] = None
     line_start: Optional[int] = None
@@ -23,6 +24,7 @@ class GraphNode:
     children_ids: list[str] = field(default_factory=list)
     calls: list[str] = field(default_factory=list)
     base_classes: list[str] = field(default_factory=list)
+    language: Optional[str] = None
 
 
 class CodeGraph:
@@ -32,14 +34,11 @@ class CodeGraph:
         self.root_path = root_path.resolve()
         self.root_name = root_path.name
         self.nodes: dict[str, GraphNode] = {}
-        self.parser = PythonParser()
+        self._registry = get_registry()
 
     def build(self, exclude_patterns: Optional[list[str]] = None) -> None:
         """Build the graph by scanning the codebase."""
-        exclude_patterns = exclude_patterns or [
-            "__pycache__", ".git", ".venv", "venv", "node_modules",
-            ".pytest_cache", ".mypy_cache", "*.egg-info", "dist", "build"
-        ]
+        exclude_patterns = exclude_patterns or list(DEFAULT_EXCLUDE_PATTERNS)
 
         # Create root node
         root_node = GraphNode(
@@ -50,13 +49,12 @@ class CodeGraph:
         self.nodes["."] = root_node
 
         # Walk the directory tree
-        self._scan_directory(self.root_path, parent_id=".", exclude_patterns=exclude_patterns)
+        self._scan_directory(
+            self.root_path, parent_id=".", exclude_patterns=exclude_patterns
+        )
 
     def _scan_directory(
-        self,
-        dir_path: Path,
-        parent_id: str,
-        exclude_patterns: list[str]
+        self, dir_path: Path, parent_id: str, exclude_patterns: list[str]
     ) -> None:
         """Recursively scan a directory and build graph nodes."""
         try:
@@ -83,20 +81,25 @@ class CodeGraph:
                 self.nodes[parent_id].children_ids.append(rel_path)
 
                 # Recurse into directory
-                self._scan_directory(item, parent_id=rel_path, exclude_patterns=exclude_patterns)
+                self._scan_directory(
+                    item, parent_id=rel_path, exclude_patterns=exclude_patterns
+                )
 
-            elif item.suffix == ".py":
-                # Create file node and parse contents
-                self._add_python_file(item, rel_path, parent_id)
+            else:
+                # Check if file is supported by any parser
+                parser = self._registry.get_parser_for_file(item)
+                if parser:
+                    self._add_source_file(item, rel_path, parent_id, parser)
 
     def add_single_file(self, file_path: Path, rel_path: str, parent_id: str) -> None:
-        """Add or update a single Python file in the graph.
+        """Add or update a single source file in the graph.
 
         Used for incremental updates.
         """
         # Remove existing nodes for this file
         nodes_to_remove = [
-            nid for nid, node in self.nodes.items()
+            nid
+            for nid, node in self.nodes.items()
             if node.file_path == rel_path or nid == rel_path
         ]
         for nid in nodes_to_remove:
@@ -108,13 +111,24 @@ class CodeGraph:
                     parent.children_ids.remove(nid)
             del self.nodes[nid]
 
-        # Re-add the file
-        self._add_python_file(file_path, rel_path, parent_id)
+        # Get parser for file and re-add
+        parser = self._registry.get_parser_for_file(file_path)
+        if parser:
+            self._add_source_file(file_path, rel_path, parent_id, parser)
 
-    def _add_python_file(self, file_path: Path, rel_path: str, parent_id: str) -> None:
-        """Add a Python file and its entities to the graph."""
+    def _add_source_file(
+        self,
+        file_path: Path,
+        rel_path: str,
+        parent_id: str,
+        parser: BaseParser,
+    ) -> None:
+        """Add a source file and its entities to the graph."""
         # Parse file first to get line count
-        entities, line_count = self.parser.parse_file(file_path)
+        entities, line_count = parser.parse_file(file_path)
+
+        # Get language from parser config
+        language = parser.config.name
 
         # Create file node with line_end set to total lines (default to 0 if parsing failed)
         file_node = GraphNode(
@@ -125,6 +139,7 @@ class CodeGraph:
             file_path=rel_path,
             line_start=1,
             line_end=line_count or 0,
+            language=language,
         )
         self.nodes[rel_path] = file_node
         self.nodes[parent_id].children_ids.append(rel_path)
@@ -153,6 +168,7 @@ class CodeGraph:
                 docstring=entity.docstring,
                 calls=entity.calls,
                 base_classes=entity.base_classes,
+                language=entity.language,
             )
             self.nodes[entity_id] = node
 

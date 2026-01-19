@@ -205,7 +205,9 @@ class TestJsonFormatter:
         assert data["node"]["base_classes"] == ["BaseClass"]
         assert len(data["children"]) == 1
         assert data["children"][0]["type"] == "method"
-        assert data["children"][0]["signature"] == "def add(self, a: int, b: int) -> int"
+        assert (
+            data["children"][0]["signature"] == "def add(self, a: int, b: int) -> int"
+        )
 
     def test_format_inspect(self):
         """Test inspecting an entity."""
@@ -253,18 +255,24 @@ class TestJsonFormatter:
     def test_format_search_results(self):
         """Test formatting search results."""
         results = [
-            (GraphNode(
-                id="src/main.py:process",
-                name="process",
-                type="function",
-                signature="def process()",
-            ), 0.95),
-            (GraphNode(
-                id="src/utils.py:helper",
-                name="helper",
-                type="function",
-                signature="def helper()",
-            ), 0.75),
+            (
+                GraphNode(
+                    id="src/main.py:process",
+                    name="process",
+                    type="function",
+                    signature="def process()",
+                ),
+                0.95,
+            ),
+            (
+                GraphNode(
+                    id="src/utils.py:helper",
+                    name="helper",
+                    type="function",
+                    signature="def helper()",
+                ),
+                0.75,
+            ),
         ]
 
         output = JsonFormatter.format_search_results("process", results)

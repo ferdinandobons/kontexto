@@ -61,11 +61,13 @@ class PythonParser:
         self,
         node: ast.FunctionDef | ast.AsyncFunctionDef,
         file_path: str,
-        parent_id: Optional[str] = None
+        parent_id: Optional[str] = None,
     ) -> CodeEntity:
         """Extract a function or method entity."""
         entity_type = "method" if parent_id else "function"
-        entity_id = f"{file_path}:{node.name}" if not parent_id else f"{parent_id}.{node.name}"
+        entity_id = (
+            f"{file_path}:{node.name}" if not parent_id else f"{parent_id}.{node.name}"
+        )
 
         return CodeEntity(
             id=entity_id,
@@ -99,26 +101,32 @@ class PythonParser:
         base_classes = [ast.unparse(base) for base in node.bases]
 
         # Add the class itself
-        entities.append(CodeEntity(
-            id=class_id,
-            name=node.name,
-            type="class",
-            file_path=file_path,
-            line_start=node.lineno,
-            line_end=node.end_lineno or node.lineno,
-            signature=self._get_class_signature(node),
-            docstring=ast.get_docstring(node),
-            parent_id=parent_id,
-            base_classes=base_classes,
-        ))
+        entities.append(
+            CodeEntity(
+                id=class_id,
+                name=node.name,
+                type="class",
+                file_path=file_path,
+                line_start=node.lineno,
+                line_end=node.end_lineno or node.lineno,
+                signature=self._get_class_signature(node),
+                docstring=ast.get_docstring(node),
+                parent_id=parent_id,
+                base_classes=base_classes,
+            )
+        )
 
         # Add methods and nested classes
         for child in node.body:
             if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
-                entities.append(self._extract_function(child, file_path, parent_id=class_id))
+                entities.append(
+                    self._extract_function(child, file_path, parent_id=class_id)
+                )
             elif isinstance(child, ast.ClassDef):
                 # Recursively handle nested classes
-                entities.extend(self._extract_class(child, file_path, parent_id=class_id))
+                entities.extend(
+                    self._extract_class(child, file_path, parent_id=class_id)
+                )
 
         return entities
 
@@ -169,7 +177,9 @@ class PythonParser:
         # Keyword-only args
         for i, arg in enumerate(args_node.kwonlyargs):
             arg_str = self._format_arg(arg)
-            kw_default = args_node.kw_defaults[i] if i < len(args_node.kw_defaults) else None
+            kw_default = (
+                args_node.kw_defaults[i] if i < len(args_node.kw_defaults) else None
+            )
             if kw_default is not None:
                 arg_str += f"={ast.unparse(kw_default)}"
             parts.append(arg_str)

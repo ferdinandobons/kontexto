@@ -1,8 +1,21 @@
 # Contexto
 
-A CLI tool to explore Python codebases efficiently. Designed for LLMs and coding agents as a smarter alternative to `ls`, `grep`, and `find`.
+A CLI tool to explore codebases efficiently. Designed for LLMs and coding agents as a smarter alternative to `ls`, `grep`, and `find`.
 
 **All output is JSON** for easy parsing by LLMs and programmatic consumption.
+
+## Supported Languages
+
+| Language | Extensions | Entities Extracted |
+|----------|------------|-------------------|
+| Python | `.py` | functions, classes, methods |
+| JavaScript | `.js`, `.jsx`, `.mjs` | functions, classes, methods, arrow functions |
+| TypeScript | `.ts`, `.tsx` | functions, classes, methods, interfaces, types |
+| Go | `.go` | functions, methods, structs, interfaces |
+| Rust | `.rs` | functions, structs, enums, traits, impl blocks, methods |
+| Java | `.java` | classes, interfaces, enums, methods, constructors |
+
+All parsers use [tree-sitter](https://tree-sitter.github.io/) for fast, accurate AST-based parsing.
 
 ## Installation
 
@@ -30,7 +43,7 @@ contexto read src/api/users.py 10 50  # Read specific lines
 
 ### `contexto index [path]`
 
-Index a Python project and build the navigation graph.
+Index a project and build the navigation graph. Automatically detects and parses all supported languages.
 
 ```bash
 contexto index                    # Index current directory
@@ -40,11 +53,12 @@ contexto index -i                 # Incremental update (faster)
 
 Creates a `.contexto/index.db` database with:
 - File and directory structure
-- Classes, methods, and functions
+- Classes, methods, functions (and language-specific entities)
 - Signatures and docstrings
 - Call relationships
 - Class inheritance (base classes)
 - TF-IDF search index
+- Language metadata for each entity
 
 ### `contexto map [path]`
 
@@ -240,22 +254,54 @@ contexto expand src/api/auth.py
 
 ## How It Works
 
-Contexto parses Python files using AST and builds a navigable graph:
+Contexto uses tree-sitter to parse source files and builds a navigable graph:
 
 ```
 Project Root
 ├── Directories
-│   └── Files (.py)
-│       ├── Classes (with base_classes)
+│   └── Files (.py, .js, .ts, .go, .rs, .java)
+│       ├── Classes/Structs/Traits (with base_classes)
 │       │   └── Methods
-│       └── Functions
+│       ├── Functions
+│       ├── Interfaces
+│       └── Enums
 ```
 
 The graph is stored in SQLite with:
 - **TF-IDF search index** for keyword search
 - **Call relationships** tracking who calls what
 - **Class inheritance** tracking base classes
+- **Language metadata** for each entity
 - **Incremental updates** for large codebases (both graph and search index)
+
+### Architecture
+
+```
+┌─────────────────┐
+│  CLI Commands   │
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│   CodeGraph     │
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│ ParserRegistry  │
+└────────┬────────┘
+         │
+    ┌────┴────┬────────┬────────┬────────┐
+    ▼         ▼        ▼        ▼        ▼
+┌───────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐
+│Python │ │  JS  │ │  Go  │ │ Rust │ │ Java │
+│Parser │ │Parser│ │Parser│ │Parser│ │Parser│
+└───┬───┘ └──┬───┘ └──┬───┘ └──┬───┘ └──┬───┘
+    │        │        │        │        │
+    └────────┴────────┴────────┴────────┘
+                      │
+              ┌───────▼───────┐
+              │  tree-sitter  │
+              └───────────────┘
+```
 
 ## Development
 

@@ -14,18 +14,82 @@ _TOKENIZE_PATTERN = re.compile(r"[a-zA-Z][a-zA-Z0-9]*")
 _CAMELCASE_PATTERN = re.compile(r"([A-Z])")
 
 # Stop words set - defined at module level to avoid recreation on every tokenize call
-_STOP_WORDS = frozenset({
-    "the", "a", "an", "is", "are", "was", "were", "be", "been",
-    "being", "have", "has", "had", "do", "does", "did", "will",
-    "would", "could", "should", "may", "might", "must", "shall",
-    "can", "need", "dare", "ought", "used", "to", "of", "in",
-    "for", "on", "with", "at", "by", "from", "as", "into",
-    "through", "during", "before", "after", "above", "below",
-    "between", "under", "again", "further", "then", "once",
-    "self", "this", "that", "these", "those", "def", "class",
-    "return", "if", "else", "elif", "try", "except", "finally",
-    "and", "or", "not", "none", "true", "false",
-})
+_STOP_WORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "must",
+        "shall",
+        "can",
+        "need",
+        "dare",
+        "ought",
+        "used",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "under",
+        "again",
+        "further",
+        "then",
+        "once",
+        "self",
+        "this",
+        "that",
+        "these",
+        "those",
+        "def",
+        "class",
+        "return",
+        "if",
+        "else",
+        "elif",
+        "try",
+        "except",
+        "finally",
+        "and",
+        "or",
+        "not",
+        "none",
+        "true",
+        "false",
+    }
+)
 
 
 class SearchEngine:
@@ -36,11 +100,14 @@ class SearchEngine:
         self._idf_cache: dict[str, float] = {}
         self._total_docs = 0
         self._result_cache: dict[str, list[tuple["GraphNode", float]]] = {}
+        self._idf_loaded = False
 
     def build_index(self) -> None:
         """Build the TF-IDF index for all searchable entities."""
-        # Clear search result cache when rebuilding index
+        # Clear caches when rebuilding index
         self._result_cache.clear()
+        self._idf_cache.clear()
+        self._idf_loaded = False
 
         cursor = self.store.conn.cursor()
 
@@ -109,7 +176,9 @@ class SearchEngine:
 
         self.store.conn.commit()
 
-    def update_index_for_nodes(self, node_ids: list[str], total_docs_changed: int = 0) -> None:
+    def update_index_for_nodes(
+        self, node_ids: list[str], total_docs_changed: int = 0
+    ) -> None:
         """Update the search index incrementally for specific nodes.
 
         Args:
@@ -126,7 +195,9 @@ class SearchEngine:
 
         # Remove old entries for these nodes
         placeholders = ",".join("?" * len(node_ids))
-        cursor.execute(f"DELETE FROM search_index WHERE node_id IN ({placeholders})", node_ids)
+        cursor.execute(
+            f"DELETE FROM search_index WHERE node_id IN ({placeholders})", node_ids
+        )
 
         # Get the nodes to index
         cursor.execute(
@@ -169,14 +240,18 @@ class SearchEngine:
 
         # For incremental updates, we use existing IDF values
         # Full IDF recalculation is expensive, so we only do it if >5% of docs changed
-        should_recalculate_idf = abs(total_docs_changed) > 0.05 * self._total_docs if self._total_docs > 0 else False
+        should_recalculate_idf = (
+            abs(total_docs_changed) > 0.05 * self._total_docs
+            if self._total_docs > 0
+            else False
+        )
 
         if should_recalculate_idf:
             # Recalculate IDF for affected terms
             for term in affected_terms:
                 cursor.execute(
                     "SELECT COUNT(DISTINCT node_id) FROM search_index WHERE term = ?",
-                    (term,)
+                    (term,),
                 )
                 df = cursor.fetchone()[0]
                 # Add 1 for the new nodes we're about to add
@@ -188,7 +263,7 @@ class SearchEngine:
                 # Update IDF in database
                 cursor.execute(
                     "INSERT OR REPLACE INTO idf (term, idf) VALUES (?, ?)",
-                    (term, new_idf)
+                    (term, new_idf),
                 )
 
         # Insert TF values for new/updated nodes
@@ -207,7 +282,7 @@ class SearchEngine:
                     self._idf_cache[term] = new_idf
                     cursor.execute(
                         "INSERT OR REPLACE INTO idf (term, idf) VALUES (?, ?)",
-                        (term, new_idf)
+                        (term, new_idf),
                     )
 
         cursor.executemany(
@@ -231,7 +306,9 @@ class SearchEngine:
 
         cursor = self.store.conn.cursor()
         placeholders = ",".join("?" * len(node_ids))
-        cursor.execute(f"DELETE FROM search_index WHERE node_id IN ({placeholders})", node_ids)
+        cursor.execute(
+            f"DELETE FROM search_index WHERE node_id IN ({placeholders})", node_ids
+        )
         self.store.conn.commit()
 
     def search(self, query: str, limit: int = 10) -> list[tuple["GraphNode", float]]:
@@ -253,8 +330,8 @@ class SearchEngine:
         if not query_terms:
             return []
 
-        # Load IDF cache if empty
-        if not self._idf_cache:
+        # Load IDF cache if not loaded yet
+        if not self._idf_loaded:
             self._load_idf_cache()
 
         # Filter to terms that exist in our index
@@ -289,7 +366,9 @@ class SearchEngine:
             scores[row["node_id"]] += tf_idf
 
         # Sort by score and get top results
-        sorted_results = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:limit]
+        sorted_results = sorted(scores.items(), key=lambda x: x[1], reverse=True)[
+            :limit
+        ]
 
         if not sorted_results:
             return []
@@ -301,7 +380,7 @@ class SearchEngine:
         cursor.execute(
             f"""
             SELECT id, name, type, parent_id, file_path,
-                   line_start, line_end, signature, docstring, calls, base_classes
+                   line_start, line_end, signature, docstring, calls, base_classes, language
             FROM nodes
             WHERE id IN ({placeholders})
             """,
@@ -310,6 +389,7 @@ class SearchEngine:
 
         # Build node lookup
         from contexto.graph import GraphNode
+
         node_lookup = {}
         for row in cursor.fetchall():
             node_lookup[row["id"]] = GraphNode(
@@ -323,7 +403,10 @@ class SearchEngine:
                 signature=row["signature"],
                 docstring=row["docstring"],
                 calls=row["calls"].split(",") if row["calls"] else [],
-                base_classes=row["base_classes"].split(",") if row["base_classes"] else [],
+                base_classes=row["base_classes"].split(",")
+                if row["base_classes"]
+                else [],
+                language=row["language"],
             )
 
         # Calculate max possible score for normalization
@@ -338,7 +421,9 @@ class SearchEngine:
         for node_id, score in sorted_results:
             node = node_lookup.get(node_id)
             if node:
-                normalized_score = min(score / max_possible, 1.0) if max_possible > 0 else 0.0
+                normalized_score = (
+                    min(score / max_possible, 1.0) if max_possible > 0 else 0.0
+                )
                 results.append((node, normalized_score))
 
         # Cache the results
@@ -354,8 +439,11 @@ class SearchEngine:
         for row in cursor.fetchall():
             self._idf_cache[row["term"]] = row["idf"]
 
-        cursor.execute("SELECT COUNT(*) FROM nodes WHERE type IN ('function', 'method', 'class')")
+        cursor.execute(
+            "SELECT COUNT(*) FROM nodes WHERE type IN ('function', 'method', 'class')"
+        )
         self._total_docs = cursor.fetchone()[0]
+        self._idf_loaded = True
 
     def _get_searchable_text(self, node) -> str:
         """Extract searchable text from a node."""

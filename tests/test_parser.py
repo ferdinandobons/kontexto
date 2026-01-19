@@ -122,12 +122,12 @@ class Outer:
 
     def test_parse_function_calls(self, temp_dir):
         """Test extracting function calls from a function body."""
-        code = '''
+        code = """
 def process():
     result = helper()
     print(result)
     save_data(result)
-'''
+"""
         file_path = temp_dir / "calls.py"
         file_path.write_text(code)
 
@@ -141,10 +141,10 @@ def process():
 
     def test_parse_positional_only_args(self, temp_dir):
         """Test parsing function with positional-only arguments."""
-        code = '''
+        code = """
 def func(a, b, /, c, d):
     pass
-'''
+"""
         file_path = temp_dir / "posonly.py"
         file_path.write_text(code)
 
@@ -155,10 +155,10 @@ def func(a, b, /, c, d):
 
     def test_parse_keyword_only_args(self, temp_dir):
         """Test parsing function with keyword-only arguments."""
-        code = '''
+        code = """
 def func(a, *, b, c):
     pass
-'''
+"""
         file_path = temp_dir / "kwonly.py"
         file_path.write_text(code)
 
@@ -170,10 +170,10 @@ def func(a, *, b, c):
 
     def test_parse_default_values(self, temp_dir):
         """Test parsing function with default values."""
-        code = '''
+        code = """
 def func(a, b=10, c="hello"):
     pass
-'''
+"""
         file_path = temp_dir / "defaults.py"
         file_path.write_text(code)
 
@@ -186,10 +186,10 @@ def func(a, b=10, c="hello"):
 
     def test_parse_syntax_error(self, temp_dir):
         """Test handling of syntax errors."""
-        code = '''
+        code = """
 def broken(
     # Missing closing paren
-'''
+"""
         file_path = temp_dir / "broken.py"
         file_path.write_text(code)
 

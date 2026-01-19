@@ -11,9 +11,11 @@ from contexto.graph import CodeGraph, GraphNode
 from contexto.store import Store
 from contexto.search import SearchEngine
 from contexto.output import JsonFormatter
+from contexto.parsers import get_registry, DEFAULT_EXCLUDE_PATTERNS
 
 HELP_TEXT = """
-A CLI tool to explore Python codebases. Designed for LLMs and coding agents.
+A CLI tool to explore codebases. Designed for LLMs and coding agents.
+Supports: Python, JavaScript/TypeScript, Go, Rust, Java.
 All output is JSON for easy parsing.
 
 WORKFLOW FOR LLMs:
@@ -37,8 +39,8 @@ EXAMPLES:
 
 OUTPUT FORMAT:
   All commands return JSON with a "command" field identifying the response type.
-  Entities include: id, name, type, file_path, line_start, line_end, signature,
-  docstring, calls (functions called), base_classes (for classes).
+  Entities include: id, name, type, language, file_path, line_start, line_end,
+  signature, docstring, calls (functions called), base_classes (for classes).
 """
 
 app = typer.Typer(
@@ -73,12 +75,14 @@ def index(
     ),
     incremental: bool = typer.Option(
         False,
-        "--incremental", "-i",
+        "--incremental",
+        "-i",
         help="Only update changed files (faster for large projects)",
     ),
 ) -> None:
-    """Index a Python project. Run this first before other commands.
+    """Index a project. Run this first before other commands.
 
+    Supports: Python, JavaScript/TypeScript, Go, Rust, Java.
     Creates .contexto/index.db with: file structure, classes, functions,
     methods, signatures, docstrings, call relationships, and search index.
     Use -i for incremental updates after the first full index.
@@ -154,15 +158,17 @@ def _full_index(project_path: Path, db_path: Path) -> None:
 
     # Print stats
     stats = graph.get_stats(".")
-    console.print(Panel(
-        f"[green]Indexed successfully![/green]\n\n"
-        f"  Files: {stats['files']}\n"
-        f"  Classes: {stats['classes']}\n"
-        f"  Functions: {stats['functions']}\n"
-        f"  Methods: {stats['methods']}\n\n"
-        f"Database: [dim]{db_path}[/dim]",
-        title="Contexto",
-    ))
+    console.print(
+        Panel(
+            f"[green]Indexed successfully![/green]\n\n"
+            f"  Files: {stats['files']}\n"
+            f"  Classes: {stats['classes']}\n"
+            f"  Functions: {stats['functions']}\n"
+            f"  Methods: {stats['methods']}\n\n"
+            f"Database: [dim]{db_path}[/dim]",
+            title="Contexto",
+        )
+    )
 
 
 def _incremental_index(project_path: Path, db_path: Path) -> None:
@@ -172,20 +178,25 @@ def _incremental_index(project_path: Path, db_path: Path) -> None:
         graph = store.load_graph(project_path)
         indexed_files = store.get_indexed_files()
 
-        # Pre-compile exclude patterns for faster matching
-        exclude_patterns = {
-            "__pycache__", ".git", ".venv", "venv", "node_modules",
-            ".pytest_cache", ".mypy_cache", "dist", "build"
-        }
+        # Get registry for supported extensions
+        registry = get_registry()
+        supported_extensions = registry.get_supported_extensions()
 
-        # Find all current Python files efficiently
+        # Find all current source files efficiently
         current_files: set[str] = set()
-        for py_file in project_path.rglob("*.py"):
-            # Check if any parent directory matches exclude patterns
-            parts = py_file.relative_to(project_path).parts
-            if any(part in exclude_patterns or part.endswith(".egg-info") for part in parts):
+        for source_file in project_path.rglob("*"):
+            if not source_file.is_file():
                 continue
-            rel_path = str(py_file.relative_to(project_path))
+            if source_file.suffix.lower() not in supported_extensions:
+                continue
+            # Check if any parent directory matches exclude patterns
+            parts = source_file.relative_to(project_path).parts
+            if any(
+                part in DEFAULT_EXCLUDE_PATTERNS or part.endswith(".egg-info")
+                for part in parts
+            ):
+                continue
+            rel_path = str(source_file.relative_to(project_path))
             current_files.add(rel_path)
 
         files_added = 0
@@ -216,15 +227,21 @@ def _incremental_index(project_path: Path, db_path: Path) -> None:
                 graph.add_single_file(file_path, rel_path, parent_id)
                 # Find newly added node IDs (entities from this file)
                 new_node_ids = set(graph.nodes.keys()) - old_node_ids
-                added_node_ids.extend(nid for nid in new_node_ids if graph.nodes[nid].type in ('function', 'method', 'class'))
+                added_node_ids.extend(
+                    nid
+                    for nid in new_node_ids
+                    if graph.nodes[nid].type in ("function", "method", "class")
+                )
 
                 new_hashes[rel_path] = current_hash
                 files_added += 1
             elif stored_hash != current_hash:
                 # Modified file - collect old node IDs to remove from index
                 old_nodes_for_file = [
-                    nid for nid, node in graph.nodes.items()
-                    if node.file_path == rel_path and node.type in ('function', 'method', 'class')
+                    nid
+                    for nid, node in graph.nodes.items()
+                    if node.file_path == rel_path
+                    and node.type in ("function", "method", "class")
                 ]
                 updated_node_ids.extend(old_nodes_for_file)
 
@@ -234,8 +251,10 @@ def _incremental_index(project_path: Path, db_path: Path) -> None:
 
                 # Collect new node IDs after update
                 new_nodes_for_file = [
-                    nid for nid, node in graph.nodes.items()
-                    if node.file_path == rel_path and node.type in ('function', 'method', 'class')
+                    nid
+                    for nid, node in graph.nodes.items()
+                    if node.file_path == rel_path
+                    and node.type in ("function", "method", "class")
                 ]
                 updated_node_ids.extend(new_nodes_for_file)
 
@@ -243,13 +262,17 @@ def _incremental_index(project_path: Path, db_path: Path) -> None:
                 files_updated += 1
 
         # Check for deleted files - collect all to delete in batch
-        files_to_delete = [rel_path for rel_path in indexed_files if rel_path not in current_files]
+        files_to_delete = [
+            rel_path for rel_path in indexed_files if rel_path not in current_files
+        ]
         if files_to_delete:
             # Collect node IDs to remove from search index before deleting
             for rel_path in files_to_delete:
                 nodes_for_file = [
-                    nid for nid, node in graph.nodes.items()
-                    if node.file_path == rel_path and node.type in ('function', 'method', 'class')
+                    nid
+                    for nid, node in graph.nodes.items()
+                    if node.file_path == rel_path
+                    and node.type in ("function", "method", "class")
                 ]
                 removed_node_ids.extend(nodes_for_file)
 
@@ -273,31 +296,37 @@ def _incremental_index(project_path: Path, db_path: Path) -> None:
 
         # Remove deleted nodes from index
         if removed_node_ids:
-            console.print(f"Removing {len(removed_node_ids)} entities from search index...")
+            console.print(
+                f"Removing {len(removed_node_ids)} entities from search index..."
+            )
             search_engine.remove_nodes_from_index(removed_node_ids)
 
         # Update added and modified nodes
         nodes_to_update = list(set(added_node_ids + updated_node_ids))
         if nodes_to_update:
-            console.print(f"Updating search index for {len(nodes_to_update)} entities...")
+            console.print(
+                f"Updating search index for {len(nodes_to_update)} entities..."
+            )
             search_engine.update_index_for_nodes(nodes_to_update, net_doc_change)
         elif not removed_node_ids:
             console.print("No changes to search index.")
 
     # Print stats
     stats = graph.get_stats(".")
-    console.print(Panel(
-        f"[green]Incremental index complete![/green]\n\n"
-        f"  Added: {files_added} files\n"
-        f"  Updated: {files_updated} files\n"
-        f"  Removed: {files_removed} files\n\n"
-        f"  Total Files: {stats['files']}\n"
-        f"  Classes: {stats['classes']}\n"
-        f"  Functions: {stats['functions']}\n"
-        f"  Methods: {stats['methods']}\n\n"
-        f"Database: [dim]{db_path}[/dim]",
-        title="Contexto",
-    ))
+    console.print(
+        Panel(
+            f"[green]Incremental index complete![/green]\n\n"
+            f"  Added: {files_added} files\n"
+            f"  Updated: {files_updated} files\n"
+            f"  Removed: {files_removed} files\n\n"
+            f"  Total Files: {stats['files']}\n"
+            f"  Classes: {stats['classes']}\n"
+            f"  Functions: {stats['functions']}\n"
+            f"  Methods: {stats['methods']}\n\n"
+            f"Database: [dim]{db_path}[/dim]",
+            title="Contexto",
+        )
+    )
 
 
 @app.command(name="map")
@@ -329,7 +358,9 @@ def show_map(
         dir_ids = [child.id for child in dir_children] + ["."]
         all_stats = store.get_stats_batch(dir_ids)
 
-        child_stats = [(child.id, all_stats.get(child.id, {})) for child in dir_children]
+        child_stats = [
+            (child.id, all_stats.get(child.id, {})) for child in dir_children
+        ]
 
         output = JsonFormatter.format_map(
             root_name=root.name,
@@ -349,7 +380,8 @@ def expand(
     ),
     path: Optional[Path] = typer.Option(
         None,
-        "--project", "-p",
+        "--project",
+        "-p",
         help="Path to the project (default: current directory)",
     ),
 ) -> None:
@@ -387,7 +419,8 @@ def inspect(
     ),
     path: Optional[Path] = typer.Option(
         None,
-        "--project", "-p",
+        "--project",
+        "-p",
         help="Path to the project (default: current directory)",
     ),
 ) -> None:
@@ -422,12 +455,14 @@ def search(
     ),
     limit: int = typer.Option(
         10,
-        "--limit", "-l",
+        "--limit",
+        "-l",
         help="Maximum number of results (default: 10)",
     ),
     path: Optional[Path] = typer.Option(
         None,
-        "--project", "-p",
+        "--project",
+        "-p",
         help="Path to the project (default: current directory)",
     ),
 ) -> None:
@@ -466,7 +501,8 @@ def read(
     ),
     path: Optional[Path] = typer.Option(
         None,
-        "--project", "-p",
+        "--project",
+        "-p",
         help="Path to the project (default: current directory)",
     ),
 ) -> None:
@@ -519,7 +555,7 @@ def read(
         raise typer.Exit(1)
 
     # Extract requested lines
-    selected_lines = lines[start_line - 1:end_line]
+    selected_lines = lines[start_line - 1 : end_line]
     selected_content = "\n".join(selected_lines)
 
     # Output raw content directly (no JSON wrapper)
@@ -534,7 +570,8 @@ def hierarchy(
     ),
     path: Optional[Path] = typer.Option(
         None,
-        "--project", "-p",
+        "--project",
+        "-p",
         help="Path to the project (default: current directory)",
     ),
 ) -> None:

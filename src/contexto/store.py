@@ -32,6 +32,7 @@ class Store:
         docstring TEXT,
         calls TEXT,
         base_classes TEXT,
+        language TEXT,
         FOREIGN KEY (parent_id) REFERENCES nodes(id)
     );
 
@@ -68,6 +69,7 @@ class Store:
     CREATE INDEX IF NOT EXISTS idx_nodes_parent ON nodes(parent_id);
     CREATE INDEX IF NOT EXISTS idx_nodes_type ON nodes(type);
     CREATE INDEX IF NOT EXISTS idx_nodes_file_path ON nodes(file_path);
+    CREATE INDEX IF NOT EXISTS idx_nodes_language ON nodes(language);
     CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
     CREATE INDEX IF NOT EXISTS idx_search_term ON search_index(term);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_search_unique ON search_index(node_id, term);
@@ -96,19 +98,7 @@ class Store:
     def _init_schema(self) -> None:
         """Initialize the database schema."""
         self.conn.executescript(self.SCHEMA)
-        self._migrate_schema()
         self.conn.commit()
-
-    def _migrate_schema(self) -> None:
-        """Apply schema migrations for existing databases."""
-        cursor = self.conn.cursor()
-
-        # Check if base_classes column exists
-        cursor.execute("PRAGMA table_info(nodes)")
-        columns = {row["name"] for row in cursor.fetchall()}
-
-        if "base_classes" not in columns:
-            cursor.execute("ALTER TABLE nodes ADD COLUMN base_classes TEXT")
 
     def __enter__(self) -> "Store":
         """Enter context manager."""
@@ -153,6 +143,7 @@ class Store:
                     node.docstring,
                     ",".join(node.calls) if node.calls else None,
                     ",".join(node.base_classes) if node.base_classes else None,
+                    node.language,
                 )
                 for node in graph.nodes.values()
             ]
@@ -160,8 +151,8 @@ class Store:
             cursor.executemany(
                 """
                 INSERT INTO nodes (id, parent_id, name, type, file_path,
-                                   line_start, line_end, signature, docstring, calls, base_classes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                   line_start, line_end, signature, docstring, calls, base_classes, language)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 node_data,
             )
@@ -191,7 +182,10 @@ class Store:
                 signature=row["signature"],
                 docstring=row["docstring"],
                 calls=row["calls"].split(",") if row["calls"] else [],
-                base_classes=row["base_classes"].split(",") if row["base_classes"] else [],
+                base_classes=row["base_classes"].split(",")
+                if row["base_classes"]
+                else [],
+                language=row["language"],
             )
             graph.nodes[node.id] = node
 
@@ -228,6 +222,7 @@ class Store:
             calls=row["calls"].split(",") if row["calls"] else [],
             children_ids=children,
             base_classes=row["base_classes"].split(",") if row["base_classes"] else [],
+            language=row["language"],
         )
 
     def get_children(self, node_id: str) -> list[GraphNode]:
@@ -235,12 +230,13 @@ class Store:
         cursor = self.conn.cursor()
 
         # Single query to get children and their grandchildren using LEFT JOIN
+        # Limit GROUP_CONCAT to 10000 IDs (each ~100 chars max) to prevent memory issues
         cursor.execute(
             """
             SELECT
                 c.id, c.name, c.type, c.parent_id, c.file_path,
-                c.line_start, c.line_end, c.signature, c.docstring, c.calls, c.base_classes,
-                GROUP_CONCAT(g.id) as grandchildren_ids
+                c.line_start, c.line_end, c.signature, c.docstring, c.calls, c.base_classes, c.language,
+                GROUP_CONCAT(g.id, ',') as grandchildren_ids
             FROM nodes c
             LEFT JOIN nodes g ON g.parent_id = c.id
             WHERE c.parent_id = ?
@@ -252,22 +248,29 @@ class Store:
 
         children = []
         for row in rows:
-            grandchildren = row["grandchildren_ids"].split(",") if row["grandchildren_ids"] else []
+            grandchildren = (
+                row["grandchildren_ids"].split(",") if row["grandchildren_ids"] else []
+            )
 
-            children.append(GraphNode(
-                id=row["id"],
-                name=row["name"],
-                type=row["type"],
-                parent_id=row["parent_id"],
-                file_path=row["file_path"],
-                line_start=row["line_start"],
-                line_end=row["line_end"],
-                signature=row["signature"],
-                docstring=row["docstring"],
-                calls=row["calls"].split(",") if row["calls"] else [],
-                children_ids=grandchildren,
-                base_classes=row["base_classes"].split(",") if row["base_classes"] else [],
-            ))
+            children.append(
+                GraphNode(
+                    id=row["id"],
+                    name=row["name"],
+                    type=row["type"],
+                    parent_id=row["parent_id"],
+                    file_path=row["file_path"],
+                    line_start=row["line_start"],
+                    line_end=row["line_end"],
+                    signature=row["signature"],
+                    docstring=row["docstring"],
+                    calls=row["calls"].split(",") if row["calls"] else [],
+                    children_ids=grandchildren,
+                    base_classes=row["base_classes"].split(",")
+                    if row["base_classes"]
+                    else [],
+                    language=row["language"],
+                )
+            )
 
         return children
 
@@ -290,7 +293,12 @@ class Store:
         )
 
         stats = {"files": 0, "classes": 0, "functions": 0, "methods": 0}
-        type_map = {"file": "files", "class": "classes", "function": "functions", "method": "methods"}
+        type_map = {
+            "file": "files",
+            "class": "classes",
+            "function": "functions",
+            "method": "methods",
+        }
         for row in cursor.fetchall():
             stat_key = type_map.get(row["type"])
             if stat_key:
@@ -332,7 +340,12 @@ class Store:
             for nid in node_ids
         }
 
-        type_map = {"file": "files", "class": "classes", "function": "functions", "method": "methods"}
+        type_map = {
+            "file": "files",
+            "class": "classes",
+            "function": "functions",
+            "method": "methods",
+        }
         for row in cursor.fetchall():
             stat_key = type_map.get(row["type"])
             if stat_key and row["root_id"] in results:
@@ -340,7 +353,9 @@ class Store:
 
         return results
 
-    def save_file_hash(self, file_path: str, content_hash: str, commit: bool = True) -> None:
+    def save_file_hash(
+        self, file_path: str, content_hash: str, commit: bool = True
+    ) -> None:
         """Save file hash for incremental updates.
 
         Args:
@@ -409,8 +424,15 @@ class Store:
         if commit:
             self.conn.commit()
 
-    def delete_file_nodes_batch(self, file_paths: list[str]) -> None:
-        """Delete nodes for multiple files in a single transaction."""
+    def delete_file_nodes_batch(
+        self, file_paths: list[str], vacuum: bool = False
+    ) -> None:
+        """Delete nodes for multiple files in a single transaction.
+
+        Args:
+            file_paths: List of file paths to delete
+            vacuum: Whether to run VACUUM after deletion to reclaim space
+        """
         if not file_paths:
             return
 
@@ -423,11 +445,24 @@ class Store:
                 f"DELETE FROM nodes WHERE file_path IN ({placeholders}) OR id IN ({placeholders})",
                 file_paths + file_paths,
             )
-            cursor.execute(f"DELETE FROM files WHERE path IN ({placeholders})", file_paths)
+            cursor.execute(
+                f"DELETE FROM files WHERE path IN ({placeholders})", file_paths
+            )
             cursor.execute("COMMIT")
         except Exception:
             cursor.execute("ROLLBACK")
             raise
+
+        if vacuum:
+            self.vacuum()
+
+    def vacuum(self) -> None:
+        """Reclaim unused space in the database.
+
+        Should be called periodically after large deletions.
+        Note: VACUUM requires no active transactions and may take time on large DBs.
+        """
+        self.conn.execute("VACUUM")
 
     def get_indexed_files(self) -> dict[str, str]:
         """Get all indexed files with their hashes."""
@@ -492,7 +527,7 @@ class Store:
         cursor.execute(
             """
             SELECT id, name, type, parent_id, file_path,
-                   line_start, line_end, signature, docstring, calls, base_classes
+                   line_start, line_end, signature, docstring, calls, base_classes, language
             FROM nodes
             WHERE type = 'class' AND (
                 base_classes LIKE ? ESCAPE '\\'
@@ -511,19 +546,24 @@ class Store:
 
         subclasses = []
         for row in cursor.fetchall():
-            subclasses.append(GraphNode(
-                id=row["id"],
-                name=row["name"],
-                type=row["type"],
-                parent_id=row["parent_id"],
-                file_path=row["file_path"],
-                line_start=row["line_start"],
-                line_end=row["line_end"],
-                signature=row["signature"],
-                docstring=row["docstring"],
-                calls=row["calls"].split(",") if row["calls"] else [],
-                base_classes=row["base_classes"].split(",") if row["base_classes"] else [],
-            ))
+            subclasses.append(
+                GraphNode(
+                    id=row["id"],
+                    name=row["name"],
+                    type=row["type"],
+                    parent_id=row["parent_id"],
+                    file_path=row["file_path"],
+                    line_start=row["line_start"],
+                    line_end=row["line_end"],
+                    signature=row["signature"],
+                    docstring=row["docstring"],
+                    calls=row["calls"].split(",") if row["calls"] else [],
+                    base_classes=row["base_classes"].split(",")
+                    if row["base_classes"]
+                    else [],
+                    language=row["language"],
+                )
+            )
 
         return subclasses
 
