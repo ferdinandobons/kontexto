@@ -1,6 +1,6 @@
 """Tests for the code graph."""
 
-from codecompass.graph import CodeGraph, GraphNode
+from kontexto.graph import CodeGraph, GraphNode
 
 
 class TestGraphNode:

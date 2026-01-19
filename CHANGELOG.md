@@ -17,13 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Java (`.java`)
 
 - **CLI commands** for codebase exploration:
-  - `codecompass index` - Index a project with incremental update support (`-i`)
-  - `codecompass map` - Show project structure with statistics
-  - `codecompass expand` - Expand nodes to see children
-  - `codecompass inspect` - Detailed entity inspection with call relationships
-  - `codecompass search` - TF-IDF based keyword search
-  - `codecompass hierarchy` - Find all subclasses of a base class
-  - `codecompass read` - Read source code with optional line ranges
+  - `kontexto index` - Index a project with incremental update support (`-i`)
+  - `kontexto map` - Show project structure with statistics
+  - `kontexto expand` - Expand nodes to see children
+  - `kontexto inspect` - Detailed entity inspection with call relationships
+  - `kontexto search` - TF-IDF based keyword search
+  - `kontexto hierarchy` - Find all subclasses of a base class
+  - `kontexto read` - Read source code with optional line ranges
 
 - **JSON output** for all commands (except `read`) for easy LLM parsing
 
@@ -51,4 +51,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Memory-mapped I/O
   - Search result caching
 
-[0.1.0]: https://github.com/ferdinandobons/codecompass/releases/tag/v0.1.0
+[0.1.0]: https://github.com/ferdinandobons/kontexto/releases/tag/v0.1.0

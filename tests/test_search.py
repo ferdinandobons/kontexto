@@ -1,8 +1,8 @@
 """Tests for the search engine."""
 
-from codecompass.graph import CodeGraph
-from codecompass.store import Store
-from codecompass.search import SearchEngine
+from kontexto.graph import CodeGraph
+from kontexto.store import Store
+from kontexto.search import SearchEngine
 
 
 class TestSearchEngine:
@@ -243,7 +243,7 @@ class TestIncrementalIndexing:
 
     def test_update_index_for_nodes(self, temp_dir):
         """Test updating search index for specific nodes."""
-        from codecompass.graph import GraphNode
+        from kontexto.graph import GraphNode
 
         db_path = temp_dir / "test.db"
 
@@ -299,7 +299,7 @@ class TestIncrementalIndexing:
 
     def test_update_index_clears_cache(self, temp_dir):
         """Test that updating index clears the result cache."""
-        from codecompass.graph import GraphNode
+        from kontexto.graph import GraphNode
 
         db_path = temp_dir / "test.db"
 
@@ -337,7 +337,7 @@ class TestIncrementalIndexing:
 
     def test_remove_nodes_from_index(self, temp_dir):
         """Test removing nodes from search index."""
-        from codecompass.graph import GraphNode
+        from kontexto.graph import GraphNode
 
         db_path = temp_dir / "test.db"
 
@@ -378,7 +378,7 @@ class TestIncrementalIndexing:
 
     def test_remove_nodes_clears_cache(self, temp_dir):
         """Test that removing nodes clears the result cache."""
-        from codecompass.graph import GraphNode
+        from kontexto.graph import GraphNode
 
         db_path = temp_dir / "test.db"
 

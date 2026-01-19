@@ -1,4 +1,4 @@
-"""CLI commands for Codecompass."""
+"""CLI commands for Kontexto."""
 
 from pathlib import Path
 from typing import Optional
@@ -7,11 +7,11 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
-from codecompass.graph import CodeGraph, GraphNode
-from codecompass.store import Store
-from codecompass.search import SearchEngine
-from codecompass.output import JsonFormatter
-from codecompass.parsers import get_registry, DEFAULT_EXCLUDE_PATTERNS
+from kontexto.graph import CodeGraph, GraphNode
+from kontexto.store import Store
+from kontexto.search import SearchEngine
+from kontexto.output import JsonFormatter
+from kontexto.parsers import get_registry, DEFAULT_EXCLUDE_PATTERNS
 
 HELP_TEXT = """
 A CLI tool to explore codebases. Designed for LLMs and coding agents.
@@ -19,23 +19,23 @@ Supports: Python, JavaScript/TypeScript, Go, Rust, Java.
 All output is JSON for easy parsing.
 
 WORKFLOW FOR LLMs:
-  1. codecompass index          # First, index the project (run once)
-  2. codecompass map            # Get project overview
-  3. codecompass expand <path>  # Drill into directories or files
-  4. codecompass search <query> # Find code by keyword
-  5. codecompass inspect <entity> # See entity details and call relationships
-  6. codecompass hierarchy <class> # Find subclasses
-  7. codecompass read <file> [start] [end] # Read source code
+  1. kontexto index          # First, index the project (run once)
+  2. kontexto map            # Get project overview
+  3. kontexto expand <path>  # Drill into directories or files
+  4. kontexto search <query> # Find code by keyword
+  5. kontexto inspect <entity> # See entity details and call relationships
+  6. kontexto hierarchy <class> # Find subclasses
+  7. kontexto read <file> [start] [end] # Read source code
 
 EXAMPLES:
-  codecompass index                    # Index current directory
-  codecompass map                      # Show project structure
-  codecompass expand src/api           # List files in directory
-  codecompass expand src/api/users.py  # Show classes/functions in file
-  codecompass search "authentication"  # Find auth-related code
-  codecompass inspect src/api/users.py:UserController.get_user
-  codecompass hierarchy BaseModel      # Find all BaseModel subclasses
-  codecompass read src/api/users.py 10 50  # Read lines 10-50
+  kontexto index                    # Index current directory
+  kontexto map                      # Show project structure
+  kontexto expand src/api           # List files in directory
+  kontexto expand src/api/users.py  # Show classes/functions in file
+  kontexto search "authentication"  # Find auth-related code
+  kontexto inspect src/api/users.py:UserController.get_user
+  kontexto hierarchy BaseModel      # Find all BaseModel subclasses
+  kontexto read src/api/users.py 10 50  # Read lines 10-50
 
 OUTPUT FORMAT:
   All commands return JSON with a "command" field identifying the response type.
@@ -44,7 +44,7 @@ OUTPUT FORMAT:
 """
 
 app = typer.Typer(
-    name="codecompass",
+    name="kontexto",
     help=HELP_TEXT,
     no_args_is_help=True,
     add_completion=False,  # Remove shell completion options (not useful for LLMs)
@@ -54,7 +54,7 @@ console = Console()
 
 def _get_db_path(project_path: Path) -> Path:
     """Get the database path for a project."""
-    return project_path / ".codecompass" / "index.db"
+    return project_path / ".kontexto" / "index.db"
 
 
 def _check_index_exists(db_path: Path) -> None:
@@ -62,7 +62,7 @@ def _check_index_exists(db_path: Path) -> None:
     if not db_path.exists():
         console.print(
             f"[red]Error:[/red] No index found at {db_path}\n"
-            "Run [bold]codecompass index[/bold] first."
+            "Run [bold]kontexto index[/bold] first."
         )
         raise typer.Exit(1)
 
@@ -83,7 +83,7 @@ def index(
     """Index a project. Run this first before other commands.
 
     Supports: Python, JavaScript/TypeScript, Go, Rust, Java.
-    Creates .codecompass/index.db with: file structure, classes, functions,
+    Creates .kontexto/index.db with: file structure, classes, functions,
     methods, signatures, docstrings, call relationships, and search index.
     Use -i for incremental updates after the first full index.
     """
@@ -93,15 +93,15 @@ def index(
         console.print(f"[red]Error:[/red] {project_path} is not a directory")
         raise typer.Exit(1)
 
-    codecompass_dir = project_path / ".codecompass"
-    db_path = codecompass_dir / "index.db"
+    kontexto_dir = project_path / ".kontexto"
+    db_path = kontexto_dir / "index.db"
 
     if incremental and db_path.exists():
         console.print(f"Incremental indexing [bold]{project_path}[/bold]...")
         _incremental_index(project_path, db_path)
     else:
-        # Ensure .codecompass directory exists
-        codecompass_dir.mkdir(exist_ok=True)
+        # Ensure .kontexto directory exists
+        kontexto_dir.mkdir(exist_ok=True)
         console.print(f"Indexing [bold]{project_path}[/bold]...")
         _full_index(project_path, db_path)
 
@@ -166,7 +166,7 @@ def _full_index(project_path: Path, db_path: Path) -> None:
             f"  Functions: {stats['functions']}\n"
             f"  Methods: {stats['methods']}\n\n"
             f"Database: [dim]{db_path}[/dim]",
-            title="Codecompass",
+            title="Kontexto",
         )
     )
 
@@ -324,7 +324,7 @@ def _incremental_index(project_path: Path, db_path: Path) -> None:
             f"  Functions: {stats['functions']}\n"
             f"  Methods: {stats['methods']}\n\n"
             f"Database: [dim]{db_path}[/dim]",
-            title="Codecompass",
+            title="Kontexto",
         )
     )
 

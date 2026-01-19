@@ -1,1 +1,1 @@
-"""Test suite for Codecompass."""
+"""Test suite for Kontexto."""

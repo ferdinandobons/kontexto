@@ -1,4 +1,4 @@
-"""Multi-language parser support for Codecompass.
+"""Multi-language parser support for Kontexto.
 
 Supported languages:
 - Python (.py, .pyi)
@@ -9,13 +9,13 @@ Supported languages:
 - Java (.java)
 """
 
-from codecompass.parsers.base import (
+from kontexto.parsers.base import (
     BaseParser,
     CodeEntity,
     LanguageConfig,
     DEFAULT_EXCLUDE_PATTERNS,
 )
-from codecompass.parsers.registry import ParserRegistry, get_registry
+from kontexto.parsers.registry import ParserRegistry, get_registry
 
 __all__ = [
     "BaseParser",

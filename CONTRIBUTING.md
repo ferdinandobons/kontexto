@@ -1,6 +1,6 @@
-# Contributing to Codecompass
+# Contributing to Kontexto
 
-Thank you for your interest in contributing to Codecompass! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Kontexto! This document provides guidelines and instructions for contributing.
 
 ## Code of Conduct
 
@@ -15,7 +15,7 @@ Before creating a bug report, please check the existing issues to avoid duplicat
 - **Clear title** describing the issue
 - **Steps to reproduce** the behavior
 - **Expected behavior** vs. actual behavior
-- **Environment details** (OS, Python version, Codecompass version)
+- **Environment details** (OS, Python version, Kontexto version)
 - **Error messages** or logs if applicable
 
 ### Suggesting Features
@@ -43,8 +43,8 @@ Feature suggestions are welcome! Please:
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/codecompass.git
-cd codecompass
+git clone https://github.com/YOUR_USERNAME/kontexto.git
+cd kontexto
 
 # Create a virtual environment
 python -m venv venv
@@ -115,8 +115,8 @@ Examples:
 ## Project Structure
 
 ```
-codecompass/
-├── src/codecompass/       # Main package
+kontexto/
+├── src/kontexto/       # Main package
 │   ├── __init__.py
 │   ├── cli.py          # CLI commands
 │   ├── parser.py       # AST parsing
@@ -134,7 +134,7 @@ codecompass/
 
 If you have questions, feel free to:
 
-- Open a [Discussion](https://github.com/YOUR_USERNAME/codecompass/discussions)
+- Open a [Discussion](https://github.com/YOUR_USERNAME/kontexto/discussions)
 - Ask in an issue with the `question` label
 
 Thank you for contributing!

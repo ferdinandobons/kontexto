@@ -7,7 +7,7 @@ from typing import Optional
 import tree_sitter_python as tspython
 from tree_sitter import Language, Parser, Node
 
-from codecompass.parsers.base import BaseParser, CodeEntity, LanguageConfig
+from kontexto.parsers.base import BaseParser, CodeEntity, LanguageConfig
 
 logger = logging.getLogger(__name__)
 

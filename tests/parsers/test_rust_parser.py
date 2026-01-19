@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from codecompass.parsers.rust_parser import RustParser
+from kontexto.parsers.rust_parser import RustParser
 
 
 class TestRustParser:

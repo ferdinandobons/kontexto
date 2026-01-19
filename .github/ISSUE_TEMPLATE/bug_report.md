@@ -11,7 +11,7 @@ A clear and concise description of what the bug is.
 
 ## To Reproduce
 Steps to reproduce the behavior:
-1. Index project with `codecompass index ...`
+1. Index project with `kontexto index ...`
 2. Run command `...`
 3. See error
 
@@ -29,7 +29,7 @@ Paste any error messages or stack traces here
 ## Environment
 - OS: [e.g., macOS 14.0, Ubuntu 22.04, Windows 11]
 - Python version: [e.g., 3.11.5]
-- Codecompass version: [e.g., 0.1.0]
+- Kontexto version: [e.g., 0.1.0]
 - Installation method: [pip, pipx, source]
 
 ## Additional Context

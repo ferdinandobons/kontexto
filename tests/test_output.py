@@ -2,8 +2,8 @@
 
 import json
 
-from codecompass.graph import GraphNode
-from codecompass.output import JsonFormatter, _node_to_dict
+from kontexto.graph import GraphNode
+from kontexto.output import JsonFormatter, _node_to_dict
 
 
 class TestNodeToDict:

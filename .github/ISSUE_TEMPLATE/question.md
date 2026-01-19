@@ -1,6 +1,6 @@
 ---
 name: Question
-about: Ask a question about Codecompass
+about: Ask a question about Kontexto
 title: '[QUESTION] '
 labels: question
 assignees: ''
@@ -18,7 +18,7 @@ Describe what you've already attempted.
 ## Environment (if relevant)
 - OS:
 - Python version:
-- Codecompass version:
+- Kontexto version:
 
 ## Code/Configuration (if relevant)
 ```python

@@ -3,7 +3,7 @@
 import json
 from typer.testing import CliRunner
 
-from codecompass.cli import app
+from kontexto.cli import app
 
 
 runner = CliRunner()
@@ -20,7 +20,7 @@ class TestIndexCommand:
         assert "Indexed successfully" in result.stdout
 
         # Database should exist
-        db_path = sample_project / ".codecompass" / "index.db"
+        db_path = sample_project / ".kontexto" / "index.db"
         assert db_path.exists()
 
     def test_index_shows_stats(self, sample_project):
@@ -440,7 +440,7 @@ class TestCLIEdgeCases:
         result = runner.invoke(app, ["--help"])
 
         assert result.exit_code == 0
-        assert "codecompass" in result.stdout.lower()
+        assert "kontexto" in result.stdout.lower()
 
     def test_command_help(self):
         """Test that individual command help works."""

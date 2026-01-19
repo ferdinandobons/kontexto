@@ -1,7 +1,7 @@
 """Tests for the SQLite store."""
 
-from codecompass.graph import CodeGraph, GraphNode
-from codecompass.store import Store
+from kontexto.graph import CodeGraph, GraphNode
+from kontexto.store import Store
 
 
 class TestStore:
@@ -30,9 +30,9 @@ class TestStore:
 
     def test_save_and_load_graph(self, sample_project):
         """Test saving and loading a graph."""
-        codecompass_dir = sample_project / ".codecompass"
-        codecompass_dir.mkdir()
-        db_path = codecompass_dir / "index.db"
+        kontexto_dir = sample_project / ".kontexto"
+        kontexto_dir.mkdir()
+        db_path = kontexto_dir / "index.db"
 
         # Build and save
         graph = CodeGraph(sample_project)

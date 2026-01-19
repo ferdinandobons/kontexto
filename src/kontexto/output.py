@@ -3,7 +3,7 @@
 import json
 from typing import Any
 
-from codecompass.graph import GraphNode
+from kontexto.graph import GraphNode
 
 
 def _node_to_dict(node: GraphNode) -> dict[str, Any]:

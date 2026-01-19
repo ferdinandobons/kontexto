@@ -4,8 +4,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from codecompass.parsers import get_registry, DEFAULT_EXCLUDE_PATTERNS
-from codecompass.parsers.base import BaseParser
+from kontexto.parsers import get_registry, DEFAULT_EXCLUDE_PATTERNS
+from kontexto.parsers.base import BaseParser
 
 
 @dataclass
